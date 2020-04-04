@@ -13,21 +13,20 @@
 %% Supervisor callbacks
 -export([init/1]).
 
--define(RULER_ID(Population_Id), {element(1, Population_Id), ruler}).
--define(SPECS_RULER(Population_Id, Arguments), #{
-    id       => ?RULER_ID(Population_Id),
-    start    => {ruler, start_link, [Arguments]},
+-define(SPECS_RULER(Population_Id, ), #{
+    id       => Population_Id,
+    start    => {ruler, start_link, [??]},
     restart  => permanent,
     shutdown => 1000,
-    modules  => [gen_server]}).
+    modules  => [gen_server]
+}).
+-define(SPECS_AGENTS(Agent_Id), #{
+    id       => Agent_Id,
+    start    => {agent, start_link, [Agent_Id]},
+    restart  => temporary,
+    shutdown => 100
+ }).
 
--define(AGENTS_SUP_ID(Population_Id), {element(2, Population_Id), agents_sup}).
--define(SPECS_AGENTS_SUP(Population_Id), #{
-    id       => ?AGENTS_SUP_ID(Population_Id),
-    start    => {agents_sup, start_link, []},
-    restart  => permanent,
-    type     => supervisor,
-    modules  => [supervisor]}).
 
 %%%===================================================================
 %%% API functions
@@ -58,8 +57,8 @@ start_ruler(Supervisor, Arguments) ->
 %%
 %% @end
 %%--------------------------------------------------------------------
-start_agents_supervisor(Supervisor, Population_Id) ->
-    supervisor:start_child(Supervisor, ?SPECS_AGENTS_SUP(Population_Id)).
+start_agent(Supervisor, Agent_Id) ->
+    supervisor:start_child(Supervisor, ?SPECS_AGENTS(Population_Id)).
 
 %%%===================================================================
 %%% Supervisor callbacks
