@@ -218,15 +218,16 @@ tree(Agent_Id) ->
 %% @end
 %%--------------------------------------------------------------------
 -spec mutate(Agent_Id :: agent_id()) ->
-    MutatedAgent_Id:: agent_id().
+    Child_Id:: agent_id().
 mutate(Agent_Id) ->
-    Agent = #agent{properties = AgentProperties, mutation_f = MutationF} = nndb:read(Agent_Id),
-    MutatedAgent = Agent#agent{
+    Agent    = nndb:read(Agent_Id),
+    Mutation = Agent#agent.mutation_function, 
+    Child = Agent#agent{
         id         = ?AGENT_ID(nnref:new()),
-        properties = MutationF(AgentProperties),
+        properties = Mutation(Agent#agent.properties),
         father     = Agent_Id},
-    nndb:write(MutatedAgent),
-    MutatedAgent#agent.id.
+    nndb:write(Child),
+    Child#agent.id.
 
 %%--------------------------------------------------------------------
 %% @doc
