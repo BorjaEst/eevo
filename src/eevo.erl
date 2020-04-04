@@ -13,17 +13,17 @@
 -author("borja").
 -compile([export_all, nowarn_export_all]). %%TODO: To delete after build
 
-
 -include_lib("society.hrl").
 
 %% API
 -export([]).
+-export([]).
 -export_Types([]).
 
--type population_id() :: .
--type agent_id()      :: .
--type model()           :: .
--type layer()           :: .
+-type population_id() :: ruler:id().
+-type agent_id()      :: agent:id().
+-type rules()         :: ruler:properties().
+-type features()      :: agent:properties().
 
 
 %%%===================================================================
@@ -31,8 +31,7 @@
 %%%===================================================================
 
 %%--------------------------------------------------------------------
-%% @doc
-%% Returns the tables and fields used by the eevo application in
+%% @doc Returns the tables and fields used by the eevo application in
 %% mnesia.
 %% @end
 %%--------------------------------------------------------------------
@@ -40,42 +39,36 @@
     {Table_Name :: atom(), [Fields :: atom()]}.
 attributes_table() ->
     [
-        {population, record_info(fields, population)},
-        {      agent, record_info(fields,      agent)}
+        {ruler, elements:fields(ruler)},
+        {agent, elements:fields(agent)}
     ].
 
 %%--------------------------------------------------------------------
-%% @doc
-%% Creates a new population in the eevo database
-%% TODO: Indicate the available options
+%% @doc Creates a new population in the eevo database
+%%
+%% TODO: Indicate the available rules 
 %% @end
 %%--------------------------------------------------------------------
--spec population() ->
+-spec population(Rules) -> Population_Id when
+    Rules         :: rules(),
     Population_Id :: population_id().
-population() ->
-    population([]).
-
--spec population([{Option :: atom(), Value :: _}]) ->
-    Population_Id :: population_id()).
-population(Options) ->
-    _Population_Id = {_, population} = demography:new_population(Options).
+population(Properties) ->
+    demography:ruler(Properties).
 
 %%--------------------------------------------------------------------
-%% @doc
-%% Starts a population and its ruler
+%% @doc Starts a population and its ruler
 %% @end
 %%--------------------------------------------------------------------
--spec start(Population :: population_id() | specification()) ->
+-spec start(Population :: population_id() | rules()) ->
     Population_Id :: population_id().
-start(Specification) is_map(Specification) ->
-    start(compile(Model));
+start(Rules) when is_map(Rules) ->
+    start(population(Rules));
 start(Population_Id) ->
     ok = eevo_srv:run(Population_Id),
     Population_Id.
 
 %%--------------------------------------------------------------------
-%% @doc
-%% Stops a population, the ruler and all agents
+%% @doc Stops a population, the ruler and all agents
 %% @end
 %%--------------------------------------------------------------------
 -spec stop(Population_Id :: population_id()) -> Result when
@@ -85,30 +78,19 @@ stop(Population_Id) ->
     eevo_srv:stop(Population_Id).
 
 %%--------------------------------------------------------------------
-%% @doc
-%% Creates a new population in the eevo database.
+%% @doc Creates a new population in the eevo database.
+%%
 %% TODO: Indicate the available options
 %% @end
 %%--------------------------------------------------------------------
--spec agent(Module, Properties Mutation) -> Agent_id when
-      Module     :: ,
-      Properties :: ,
-      Mutation   :: ,
-      Agent_Id   :: agent_id().
-agent(Module, AgentProperties, Mutation) ->
-    agent(Module, Properties, MutationF, #{}).
-
--spec agent(Module, Properties Mutation) -> Agent_id when
-      Module     :: ,
-      Properties :: ,
-      Mutation   :: ,
-      Agent_Id   :: agent_id().
-agent(Module, Properties, Mutation, Options) ->
-    demography:new_agent(Module, Properties, Mutation, Options).
+-spec agent(Features) -> Agent_Id when
+      Features :: features(),
+      Agent_Id :: agent_id().
+agent(Features) ->
+    demography:agent(Features).
 
 %%--------------------------------------------------------------------
-%% @doc
-%% Requests a population ruler to add an agent into its population
+%% @doc Requests a population ruler to add an agent into its population
 %% @end
 %%--------------------------------------------------------------------
 -spec add(Population_Id, Agent_Id) -> ok when
@@ -119,8 +101,7 @@ add(Population_Id, Agent_Id) ->
     ruler:async_queue(Ruler, Agent_Id).
 
 %%--------------------------------------------------------------------
-%% @doc
-%% Add a score value to an agent id. The function is asynchronous.
+%% @doc Add a score value to an agent id. The call is asynchronous.
 %% @end
 %%--------------------------------------------------------------------
 -spec kill(Population_Id, Agent_Id) -> ok when
@@ -131,8 +112,7 @@ kill(Population_Id, Agent_Id) ->
     ruler:stop(Ruler, Agent_Id).
 
 %%--------------------------------------------------------------------
-%% @doc
-%% Add a score value to an agent id. The function is asynchronous.
+%% @doc Add a score value to an agent id. The call is asynchronous.
 %% @end
 %%--------------------------------------------------------------------
 -spec add_score(Population_Id, Agent_Id, Score) -> ok when
@@ -144,8 +124,7 @@ add_score(Population_Id, Agent_Id, Score) ->
     ruler:add_score(Ruler, Agent_Id, Score).
 
 %%--------------------------------------------------------------------
-%% @doc
-%% Sets a score value to an agent id. The function is asynchronous.
+%% @doc Sets a score value to an agent id. The call is asynchronous.
 %% @end
 %%--------------------------------------------------------------------
 -spec set_score(Population_Id, Agent_Id, Score) -> ok when
@@ -157,8 +136,7 @@ set_score(Population_Id, Agent_Id, Score) ->
     ruler:set_score(Ruler, Agent_Id, Score).
 
 %%--------------------------------------------------------------------
-%% @doc
-%% Returns the ETS with the score table managed by a ruler
+%% @doc Returns the ETS with the score table managed by a ruler.
 %% @end
 %%--------------------------------------------------------------------
 -spec score_pool(Population_Id :: population_id()) ->
@@ -168,8 +146,7 @@ score_pool(Population_Id) ->
     _Pool = ruler:score_pool(Ruler).
 
 %%--------------------------------------------------------------------
-%% @doc
-%% Returns the N agents with the highest score
+%% @doc Returns the N agents with the highest score.
 %% @end
 %%--------------------------------------------------------------------
 -spec top(Population_Id :: population_id(), N :: integer()) ->
@@ -185,8 +162,7 @@ get_last_n_from_pool(Pool, ScoreAgent, N) ->
     [{Agent_Id, Score, Additional_Info} | get_last_n_from_pool(Pool, ets:prev(Pool, ScoreAgent), N - 1)].
 
 %%--------------------------------------------------------------------
-%% @doc
-%% Returns the N agents with the lowest score
+%% @doc Returns the N agents with the lowest score.
 %% @end
 %%--------------------------------------------------------------------
 -spec bottom(Population_Id :: population_id(), N :: integer()) ->
@@ -202,8 +178,7 @@ get_first_n_from_pool(Pool, ScoreAgent, N) ->
     [{Agent_Id, Score, Additional_Info} | get_first_n_from_pool(Pool, ets:next(Pool, ScoreAgent), N - 1)].
 
 %%--------------------------------------------------------------------
-%% @doc
-%% Returns the genealogical tree of an agent
+%% @doc Returns the genealogical tree of an agent.
 %% @end
 %%--------------------------------------------------------------------
 -spec tree(Agent_Id :: agent_id()) ->
@@ -212,9 +187,9 @@ tree(Agent_Id) ->
     demography:tree(Agent_Id).
 
 %%--------------------------------------------------------------------
-%% @doc
-%% Reads the father agent, applies the mutation function to the agent
-%% properties, saves the mutated agent on the nndb and returns its Id
+%% @doc Reads the father agent, applies the mutation function to the 
+%% agent properties, saves the mutated agent on the nndb and returns 
+%% its Id.
 %% @end
 %%--------------------------------------------------------------------
 -spec mutate(Agent_Id :: agent_id()) ->
@@ -230,8 +205,7 @@ mutate(Agent_Id) ->
     Child#agent.id.
 
 %%--------------------------------------------------------------------
-%% @doc
-%% Pretty formats an eevo record
+%% @doc Pretty formats an eevo record.
 %% @end
 %%--------------------------------------------------------------------
 -spec pformat(Population_Id :: population_id()) ->
