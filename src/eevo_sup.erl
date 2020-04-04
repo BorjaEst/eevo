@@ -8,7 +8,7 @@
 -behaviour(supervisor).
 
 %% API
--export([start_link/1, start_population_supervisor/1, terminate_population_supervisor/1]).
+-export([start_link/1, start_supervisor/1, stop_supervisor/1]).
 
 %% Supervisor callbacks
 -export([init/1]).
@@ -22,7 +22,8 @@
     shutdown => 1000,
     modules  => [gen_server]}).
 
--define(POP_SUP_ID(Population_Id), {element(1, Population_Id), pop_sup}).
+-define(POP_SUP_ID(Population_Id),
+    {element(1, Population_Id), pop_sup}).
 -define(SPECS_POP_SUP(Population_Id), #{
     id       => ?POP_SUP_ID(Population_Id),
     start    => {pop_sup, start_link, []},
@@ -35,30 +36,24 @@
 %%====================================================================
 
 %%--------------------------------------------------------------------
-%% @doc
-%% Starts the supervisor
-%%
+%% @doc Starts the supervisor
 %% @end
 %%--------------------------------------------------------------------
 start_link(StartArgs) ->
     supervisor:start_link({local, ?SERVER}, ?MODULE, StartArgs).
 
 %%--------------------------------------------------------------------
-%% @doc
-%% Requests the supervisor to start a population supervisor
-%%
+%% @doc Requests the supervisor to start a population supervisor 
 %% @end
 %%--------------------------------------------------------------------
-start_population_supervisor(Population_Id) ->
+start_supervisor(Population_Id) ->
     supervisor:start_child(?SERVER, ?SPECS_POP_SUP(Population_Id)).
 
 %%--------------------------------------------------------------------
-%% @doc
-%% Requests the supervisor to terminate a population supervisor
-%%
+%% @doc Requests the supervisor to terminate a population supervisor
 %% @end
 %%--------------------------------------------------------------------
-terminate_population_supervisor(Population_Id) ->
+stop_supervisor(Population_Id) ->
     supervisor:terminate_child(?SERVER, ?POP_SUP_ID(Population_Id)).
 
 %%====================================================================

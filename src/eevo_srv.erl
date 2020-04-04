@@ -141,7 +141,7 @@ handle_call({run, Pop_Id}, From, State) ->
     {noreply, State#state{queue = queue:in({From, Pop_Id}, Q)}};
 
 handle_call({stop, Pop_Id}, _From, State) ->
-    Reply = eevo_sup:terminate_population_supervisor(Pop_Id),
+    Reply = eevo_sup:stop_supervisor(Pop_Id),
     {reply, Reply, State};
 
 handle_call({population, Pop_Id}, _From, State) ->
@@ -231,7 +231,7 @@ code_change(_OldVsn, State, _Extra) ->
 % --------------------------------------------------------------------..................................................
 handle_start_population(Population_Id, State, {Owner, _Tag} = _From) ->
     #state{refs = Refs, populations = Populations} = State,
-    {ok, Pop_Sup} = eevo_sup:start_population_supervisor(Population_Id),
+    {ok, Pop_Sup} = eevo_sup:start_supervisor(Population_Id),
     {ok, Gov} = pop_sup:start_ruler(Pop_Sup, #{
         id           => Population_Id,
         owner        => Owner,
