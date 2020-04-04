@@ -69,7 +69,7 @@ mutationF_example(Properties) ->
 %%                     {stop, Reason}
 %% @end
 %%--------------------------------------------------------------------
--spec(agent_init(Args :: term()) ->
+-spec agent_init(Args :: term()) ->
     {ok, State :: #state{}} | {ok, State :: #state{}, timeout() | hibernate} |
     {stop, Reason :: term()} | ignore).
 agent_init([Properties]) ->
@@ -93,7 +93,7 @@ agent_init([Properties]) ->
 %%                                   {stop, Reason, State}
 %% @end
 %%--------------------------------------------------------------------
--spec(handle_info(Info :: timeout() | term(), State :: #state{}) ->
+-spec handle_info(Info :: timeout() | term(), State :: #state{}) ->
     {noreply, NewState :: #state{}} |
     {noreply, NewState :: #state{}, timeout() | hibernate} |
     {stop, Reason :: term(), NewState :: #state{}}).
@@ -131,7 +131,7 @@ handle_info(Info, State) ->
 %% @spec terminate(Reason, State) -> void()
 %% @end
 %%--------------------------------------------------------------------
--spec(terminate(Reason :: (normal | shutdown | {shutdown, term()} | term()),
+-spec terminate(Reason :: (normal | shutdown | {shutdown, term()} | term()),
                 State :: #state{}) -> term()).
 terminate(_Reason, _State) ->
 %%    io:format("Terminate ~p ~n", [Reason]),

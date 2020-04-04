@@ -89,7 +89,7 @@ stop_agent(Supervisor, Agent_Id) ->
 %%
 %% @end
 %%--------------------------------------------------------------------
--spec(init(Args :: term()) ->
+-spec init(Args :: term()) ->
     {ok, {SupFlags :: {RestartStrategy :: supervisor:strategy(),
                        MaxR :: non_neg_integer(), MaxT :: non_neg_integer()},
           [ChildSpec :: supervisor:child_spec()]}} |

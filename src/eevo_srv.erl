@@ -105,7 +105,7 @@ pop_sup(Population_Id) ->
 %%                     {stop, Reason}
 %% @end
 %%--------------------------------------------------------------------
--spec(init(Args :: term()) ->
+-spec init(Args :: term()) ->
     {ok, State :: #state{}} | {ok, State :: #state{}, timeout() | hibernate} |
     {stop, Reason :: term()} | ignore).
 init(StartArgs) ->
@@ -125,7 +125,7 @@ do_init([], State) ->
 %%
 %% @end
 %%--------------------------------------------------------------------
--spec(handle_call(Request :: term(), From :: {pid(), Tag :: term()},
+-spec handle_call(Request :: term(), From :: {pid(), Tag :: term()},
                   State :: #state{}) ->
                      {reply, Reply :: term(), NewState :: #state{}} |
                      {reply, Reply :: term(), NewState :: #state{}, timeout() | hibernate} |
@@ -159,7 +159,7 @@ handle_call(Request, From, State) ->
 %%
 %% @end
 %%--------------------------------------------------------------------
--spec(handle_cast(Request :: term(), State :: #state{}) ->
+-spec handle_cast(Request :: term(), State :: #state{}) ->
     {noreply, NewState :: #state{}} |
     {noreply, NewState :: #state{}, timeout() | hibernate} |
     {stop, Reason :: term(), NewState :: #state{}}).
@@ -177,7 +177,7 @@ handle_cast(Request, State) ->
 %%                                   {stop, Reason, State}
 %% @end
 %%--------------------------------------------------------------------
--spec(handle_info(Info :: timeout() | term(), State :: #state{}) ->
+-spec handle_info(Info :: timeout() | term(), State :: #state{}) ->
     {noreply, NewState :: #state{}} |
     {noreply, NewState :: #state{}, timeout() | hibernate} |
     {stop, Reason :: term(), NewState :: #state{}}).
@@ -204,7 +204,7 @@ handle_info(Info, State) ->
 %% @spec terminate(Reason, State) -> void()
 %% @end
 %%--------------------------------------------------------------------
--spec(terminate(Reason :: (normal | shutdown | {shutdown, term()} | term()),
+-spec terminate(Reason :: (normal | shutdown | {shutdown, term()} | term()),
                 State :: #state{}) -> term()).
 terminate(Reason, _State) ->
     ?LOG_INFO("terminate eevo_srv, reason ~p", [Reason]),
@@ -218,7 +218,7 @@ terminate(Reason, _State) ->
 %% @spec code_change(OldVsn, State, Extra) -> {ok, NewState}
 %% @end
 %%--------------------------------------------------------------------
--spec(code_change(OldVsn :: term() | {down, term()}, State :: #state{},
+-spec code_change(OldVsn :: term() | {down, term()}, State :: #state{},
                   Extra :: term()) ->
                      {ok, NewState :: #state{}} | {error, Reason :: term()}).
 code_change(_OldVsn, State, _Extra) ->
@@ -228,7 +228,7 @@ code_change(_OldVsn, State, _Extra) ->
 %%% Internal functions
 %%%===================================================================
 
-% ......................................................................................................................
+% --------------------------------------------------------------------..................................................
 handle_start_population(Population_Id, State, {Owner, _Tag} = _From) ->
     #state{refs = Refs, populations = Populations} = State,
     {ok, Pop_Sup} = eevo_sup:start_population_supervisor(Population_Id),
@@ -241,7 +241,7 @@ handle_start_population(Population_Id, State, {Owner, _Tag} = _From) ->
     {reply, {ok, {Gov, Pop_Sup}}, State#state{populations = orddict:store(Population_Id, {Gov, Pop_Sup}, Populations),
                                               refs        = gb_trees:insert(Ref, Population_Id, Refs)}}.
 
-% ......................................................................................................................
+% --------------------------------------------------------------------..................................................
 handle_down_population(Ref, State) ->
     #state{refs = Refs, populations = Populations, queue = Queue} = State,
     DeadPopulation_Id = gb_trees:get(Ref, Refs),

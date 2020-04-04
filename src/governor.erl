@@ -137,7 +137,7 @@ trigger_evolution(Governor) ->
 %%                     {stop, Reason}
 %% @end
 %%--------------------------------------------------------------------
--spec(init(Args :: term()) ->
+-spec init(Args :: term()) ->
     {ok, State :: #state{}} | {ok, State :: #state{}, timeout() | hibernate} |
     {stop, Reason :: term()} | ignore).
 init(Arguments) ->
@@ -175,7 +175,7 @@ do_init([], State) ->
 %%
 %% @end
 %%--------------------------------------------------------------------
--spec(handle_call(Request :: term(), From :: {pid(), Tag :: term()},
+-spec handle_call(Request :: term(), From :: {pid(), Tag :: term()},
                   State :: #state{}) ->
                      {reply, Reply :: term(), NewState :: #state{}} |
                      {reply, Reply :: term(), NewState :: #state{}, timeout() | hibernate} |
@@ -220,7 +220,7 @@ handle_call(Request, _From, State) ->
 %%
 %% @end
 %%--------------------------------------------------------------------
--spec(handle_cast(Request :: term(), State :: #state{}) ->
+-spec handle_cast(Request :: term(), State :: #state{}) ->
     {noreply, NewState :: #state{}} |
     {noreply, NewState :: #state{}, timeout() | hibernate} |
     {stop, Reason :: term(), NewState :: #state{}}).
@@ -272,7 +272,7 @@ handle_cast(Request, State) ->
 %%                                   {stop, Reason, State}
 %% @end
 %%--------------------------------------------------------------------
--spec(handle_info(Info :: timeout() | term(), State :: #state{}) ->
+-spec handle_info(Info :: timeout() | term(), State :: #state{}) ->
     {noreply, NewState :: #state{}} |
     {noreply, NewState :: #state{}, timeout() | hibernate} |
     {stop, Reason :: term(), NewState :: #state{}}).
@@ -316,7 +316,7 @@ handle_info(Info, State) ->
 %% @spec terminate(Reason, State) -> void()
 %% @end
 %%--------------------------------------------------------------------
--spec(terminate(Reason :: (normal | shutdown | {shutdown, term()} | term()),
+-spec terminate(Reason :: (normal | shutdown | {shutdown, term()} | term()),
                 State :: #state{}) -> term()).
 terminate(Reason, State) ->
     ?LOG_INFO("terminate Population_Id:~p, reason ~p", [State#state.id, Reason]),
@@ -331,7 +331,7 @@ terminate(Reason, State) ->
 %% @spec code_change(OldVsn, State, Extra) -> {ok, NewState}
 %% @end
 %%--------------------------------------------------------------------
--spec(code_change(OldVsn :: term() | {down, term()}, State :: #state{},
+-spec code_change(OldVsn :: term() | {down, term()}, State :: #state{},
                   Extra :: term()) ->
                      {ok, NewState :: #state{}} | {error, Reason :: term()}).
 code_change(_OldVsn, State, _Extra) ->
@@ -341,19 +341,19 @@ code_change(_OldVsn, State, _Extra) ->
 %%% Internal functions
 %%%===================================================================
 
-% ......................................................................................................................
+% --------------------------------------------------------------------..................................................
 population_result(State) ->
     _Result = #{
         best_score   => ets:last(State#state.score_pool),
         n_agents     => State#state.agents_counter,
         running_time => (erlang:monotonic_time(millisecond) - State#state.start_time)}.
 
-% ......................................................................................................................
+% --------------------------------------------------------------------..................................................
 handle_start_agent(Agent_Id, Population_Id, Agents_Sup) ->
     {ok, PId} = agents_sup:start_agent(Agents_Sup, Population_Id, Agent_Id),
     {erlang:monitor(process, PId), PId}.
 
-% ......................................................................................................................
+% --------------------------------------------------------------------..................................................
 handle_queue(Out, #state{agents_counter = Counter, spawn_limit = Limit} = State) when Counter >= Limit ->
     self() ! run_end,
     handle_queue(Out, State#state{
@@ -375,7 +375,7 @@ handle_queue({value, {noreply, Agent_Id}}, State) ->
 handle_queue(empty, State) ->
     handle_evolution(State).
 
-% ......................................................................................................................
+% --------------------------------------------------------------------..................................................
 handle_set_score(A_Id, NewScore, OldScore, S_Info, #state{score_limit = Limit} = State) when NewScore >= Limit ->
     self() ! run_end,
     handle_set_score(A_Id, NewScore, OldScore, S_Info, State#state{score_limit = alert_raised});
@@ -385,13 +385,13 @@ handle_set_score(Agent_Id, NewScore, OldScore, Score_Info, State) ->
     ets:insert(ScorePool, {{NewScore, Agent_Id}, Score_Info}),
     State#state{agents = orddict:store(Agent_Id, NewScore, Agents)}.
 
-% ......................................................................................................................
+% --------------------------------------------------------------------..................................................
 scoreAgents(Pool) -> scoreAgents(Pool, ets:last(Pool)).
 
 scoreAgents(Pool, {_Score, _Agent_Id} = Key) -> [Key | scoreAgents(Pool, ets:prev(Pool, Key))];
 scoreAgents(_Pool, '$end_of_table')          -> [].
 
-% ......................................................................................................................
+% --------------------------------------------------------------------..................................................
 handle_evolution(State) ->
     #state{limit      = Limit,
            score_pool = ScorePool,
@@ -413,7 +413,7 @@ handle_run_agent(Agent_Id, State) ->
     State#state{
         queue = queue:in(Agent_Id, State#state.queue)}.
 
-% ......................................................................................................................
+% --------------------------------------------------------------------..................................................
 report_agent(Agent_Id, Score, Pool) ->
     [{{Score, Agent_Id}, Additional_Info}] = ets:lookup(Pool, {Score, Agent_Id}),
     Agent = nndb:read(Agent_Id),

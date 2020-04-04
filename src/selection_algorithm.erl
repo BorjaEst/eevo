@@ -44,12 +44,12 @@ statistic_top_3(ScoreAgents_List, ClonesToGenerate) ->
 %% Internal functions
 %%====================================================================
 
-% ......................................................................................................................
+% --------------------------------------------------------------------..................................................
 score_selection_fun(ScoreAgents_List, ClonesToGenerate) ->
     RangeId_List = range_id_list(ScoreAgents_List),
     [select_range_id(RangeId_List, rand:uniform()) || _ <- lists:seq(1, ClonesToGenerate)].
 
-% ......................................................................................................................
+% --------------------------------------------------------------------..................................................
 range_id_list(ScoreAgents_List) ->
     Sorted_AS_List = lists:reverse(lists:sort(ScoreAgents_List)),  % Defensive programming in this application
     TotScore = lists:sum([Score || {Score, _} <- Sorted_AS_List]),
@@ -60,7 +60,7 @@ create_range({Score, Agent_Id}, {AccIn, TotScore}) ->
     AccOut = AccIn + Score / TotScore,
     {{AccOut, Agent_Id}, {AccOut, TotScore}}.
 
-% ......................................................................................................................
+% --------------------------------------------------------------------..................................................
 select_range_id([{N, Id} | _], V) when N >= V -> Id;
 select_range_id([_Elem | Rest], V)            -> select_range_id(Rest, V).
 

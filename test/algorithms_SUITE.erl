@@ -142,70 +142,70 @@ my_test_case_example(_Config) ->
 % --------------------------------------------------------------------
 % TESTS --------------------------------------------------------------
 
-% ......................................................................................................................
+% --------------------------------------------------------------------..................................................
 test_for_static_on_limit() ->
     [].
 test_for_static_on_limit(_Config) ->
     Algorithm = fun evolutionary_algorithm:static_on_limit/2,
     display_example_evolutionary_algorithm(Algorithm),
     Options = [{evo_alg_f, Algorithm}],
-    Population_Id = eevo:create_population(Options),
+    Population_Id = eevo:population(Options),
     run_population(Population_Id),
     ok.
 
-% ......................................................................................................................
+% --------------------------------------------------------------------..................................................
 test_for_uniform_distribution() ->
     [].
 test_for_uniform_distribution(_Config) ->
     Algorithm = fun evolutionary_algorithm:uniform_distribution/2,
     display_example_evolutionary_algorithm(Algorithm),
     Options = [{evo_alg_f, Algorithm}],
-    Population_Id = eevo:create_population(Options),
+    Population_Id = eevo:population(Options),
     run_population(Population_Id),
     ok.
 
-% ......................................................................................................................
+% --------------------------------------------------------------------..................................................
 test_for_normal_distribution() ->
     [].
 test_for_normal_distribution(_Config) ->
     Algorithm = fun evolutionary_algorithm:normal_distribution/2,
     display_example_evolutionary_algorithm(Algorithm),
     Options = [{evo_alg_f, Algorithm}],
-    Population_Id = eevo:create_population(Options),
+    Population_Id = eevo:population(Options),
     run_population(Population_Id),
     ok.
 
-% ......................................................................................................................
+% --------------------------------------------------------------------..................................................
 test_for_statistic_ramp() ->
     [].
 test_for_statistic_ramp(_Config) ->
     Algorithm = fun selection_algorithm:statistic_ramp/2,
     display_example_selection_algorithm(Algorithm),
     Options = [{sel_alg_f, Algorithm}],
-    Population_Id = eevo:create_population(Options),
+    Population_Id = eevo:population(Options),
     run_population(Population_Id),
     ok.
 
-% ......................................................................................................................
+% --------------------------------------------------------------------..................................................
 test_for_statistic_top3() ->
     [].
 test_for_statistic_top3(_Config) ->
     Algorithm = fun selection_algorithm:statistic_top_3/2,
     display_example_selection_algorithm(Algorithm),
     Options = [{sel_alg_f, Algorithm}],
-    Population_Id = eevo:create_population(Options),
+    Population_Id = eevo:population(Options),
     run_population(Population_Id),
     ok.
 
 % ----------------------------------------------------------------------------------------------------------------------
 % SPECIFIC HELPER FUNCTIONS --------------------------------------------------------------------------------------------
 
-% ......................................................................................................................
+% --------------------------------------------------------------------..................................................
 test_list_of_score_agents(N) ->
     Unsorted_ScoreAgents = [{X * X, list_to_atom("agent_" ++ integer_to_list(X))} || X <- lists:seq(1, N)],
     lists:reverse(lists:sort(Unsorted_ScoreAgents)).
 
-% ......................................................................................................................
+% --------------------------------------------------------------------..................................................
 display_example_selection_algorithm(Selection_algorithm) ->
     ?INFO("Correct application of the selection algorithm to a trial sample ....................."),
     ScoreAgents_List = test_list_of_score_agents(?AGENTS_TO_GENERATE_ON_TRIAL),
@@ -215,7 +215,7 @@ display_example_selection_algorithm(Selection_algorithm) ->
     ?INFO("____________________________________________________________________________________OK"),
     ok.
 
-% ......................................................................................................................
+% --------------------------------------------------------------------..................................................
 display_example_evolutionary_algorithm(Evolutionary_algorithm) ->
     ?INFO("Correct application of the evolutionary algorithm to a trial sample .................."),
     Current_pop = rand:uniform(10) + 4,
@@ -225,14 +225,14 @@ display_example_evolutionary_algorithm(Evolutionary_algorithm) ->
     ?INFO("____________________________________________________________________________________OK"),
     ok.
 
-% ......................................................................................................................
+% --------------------------------------------------------------------..................................................
 run_population(Population_Id) ->
     ?INFO("Correct agents generation and population start ......................................."),
-    TestAgents_Id = [                                    eevo:create_agent(
+    TestAgents_Id = [                                    eevo:agent(
         _Module = test_agent, % Module where the gen_agent is implemented
         _AgentProperties = test_agent:properties_example(),
         _MutationF = fun test_agent:mutationF_example/1) || _ <- lists:seq(1, 6)],
-    {ok, Gov_PId} = eevo:start_population(Population_Id),
+    {ok, Gov_PId} = eevo:start(Population_Id),
     timer:sleep(10),
     true = is_process_alive(Gov_PId),
     ?INFO("____________________________________________________________________________________OK"),
@@ -241,7 +241,7 @@ run_population(Population_Id) ->
     [eevo:add_agent(Population_Id, Agent_Id) || Agent_Id <- TestAgents_Id],
     timer:sleep(1000),
     true = is_process_alive(Gov_PId),
-    eevo:stop_population(Population_Id),
+    eevo:stop(Population_Id),
     false = is_process_alive(Gov_PId),
     ?INFO("____________________________________________________________________________________OK"),
     ok.
