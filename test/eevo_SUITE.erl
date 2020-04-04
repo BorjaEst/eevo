@@ -225,7 +225,7 @@ test_with_score_limit(_Config) ->
 correct_population_generation() ->
     ?INFO("Correct generation of a population ..................................................."),
     Population_Id = eevo:population(),
-    Population = nndb:read(Population_Id),
+    Population = edb:read(Population_Id),
     true = is_record(Population, population),
     ?INFO("____________________________________________________________________________________OK"),
     {ok, Population_Id}.
@@ -238,7 +238,7 @@ correct_agents_generation(N) ->
         _AgentProperties = test_agent:properties_example(),
         _MutationF = fun test_agent:mutationF_example/1)
                  || _ <- ?SEQ(N)],
-    Agents = nndb:read(Agents_Id),
+    Agents = edb:read(Agents_Id),
     [true = is_record(Agent, agent) || Agent <- Agents],
     ?INFO("____________________________________________________________________________________OK"),
     {ok, Agents_Id}.

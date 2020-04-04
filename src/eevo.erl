@@ -195,13 +195,13 @@ tree(Agent_Id) ->
 -spec mutate(Agent_Id :: agent_id()) ->
     Child_Id:: agent_id().
 mutate(Agent_Id) ->
-    Agent    = nndb:read(Agent_Id),
+    Agent    = edb:read(Agent_Id),
     Mutation = Agent#agent.mutation_function, 
     Child = Agent#agent{
         id         = ?AGENT_ID(nnref:new()),
         properties = Mutation(Agent#agent.properties),
         father     = Agent_Id},
-    nndb:write(Child),
+    edb:write(Child),
     Child#agent.id.
 
 %%--------------------------------------------------------------------

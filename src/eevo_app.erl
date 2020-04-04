@@ -17,8 +17,8 @@
 
 start(_StartType, StartArgs) ->
     Tables = eevo:attributes_table(),
-    nndb:create_tables(Tables),
-    nndb:start(Tables),
+    edb:create_tables(Tables),
+    edb:start(Tables),
     eevo_sup:start_link(StartArgs).
 
 %%--------------------------------------------------------------------

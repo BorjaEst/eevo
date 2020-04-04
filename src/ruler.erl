@@ -159,7 +159,7 @@ do_init([{supervisor, PopSup} | Arguments], State) ->
     self() ! {start_agents_supervisor, PopSup},
     do_init(Arguments, State);
 do_init([{id, Value} | Arguments], State) ->
-    Population = nndb:read(Value),
+    Population = edb:read(Value),
     timer:send_after(Population#population.run_time, run_end),
     do_init(Arguments, State#state{
         id          = Population#population.id,
@@ -424,7 +424,7 @@ handle_run_agent(Agent_Id, State) ->
 % --------------------------------------------------------------------..................................................
 report_agent(Agent_Id, Score, Pool) ->
     [{{Score, Agent_Id}, Additional_Info}] = ets:lookup(Pool, {Score, Agent_Id}),
-    Agent = nndb:read(Agent_Id),
+    Agent = edb:read(Agent_Id),
     report:map(
         #{
             id          => report:format_tuple(Agent_Id),
