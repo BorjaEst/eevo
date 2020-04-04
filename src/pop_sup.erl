@@ -7,25 +7,30 @@
 -module(pop_sup).
 -behaviour(supervisor).
 
+-include_lib("society.hrl").
+
 %% API
--export([start_link/0, start_ruler/2, start_agents_supervisor/2]).
+-export([start_link/1, start_ruler/2, start_agent/2]).
 
 %% Supervisor callbacks
 -export([init/1]).
 
--define(SPECS_RULER(Population_Id, ), #{
-    id       => Population_Id,
-    start    => {ruler, start_link, [??]},
+-define(SPECS_RULER(Ruler_id), #{
+    id       => Ruler_id,
+    start    => {ruler, start_link, []},
     restart  => permanent,
     shutdown => 1000,
     modules  => [gen_server]
 }).
--define(SPECS_AGENTS(Agent_Id), #{
+-define(SPECS_AGENT(Agent_Id), #{
     id       => Agent_Id,
     start    => {agent, start_link, [Agent_Id]},
     restart  => temporary,
-    shutdown => 100
+    shutdown => 100,
+    modules  => [agent]
  }).
+
+-define(ETS_TABLE_SPECS, [public]).
 
 
 %%%===================================================================
@@ -33,32 +38,27 @@
 %%%===================================================================
 
 %%--------------------------------------------------------------------
-%% @doc
-%% Starts the supervisor
-%%
+%% @doc Starts the supervisor
 %% @end
 %%--------------------------------------------------------------------
-start_link() ->
-    supervisor:start_link(?MODULE, []).
+start_link(Ruler_Id) ->
+    supervisor:start_link(?MODULE, [Ruler_Id]).
 
 %%--------------------------------------------------------------------
-%% @doc
-%% Requests the supervisor to start a population supervisor
-%%
+%% @doc Requests the supervisor to start a population supervisor
 %% @end
 %%--------------------------------------------------------------------
-start_ruler(Supervisor, Arguments) ->
-    Population_Id = maps:get(id, Arguments),
-    supervisor:start_child(Supervisor, ?SPECS_RULER(Population_Id, maps:to_list(Arguments))).
+start_ruler(Supervisor, Ruler_id) ->
+    supervisor:start_child(Supervisor, ?SPECS_RULER(Ruler_id)).
 
 %%--------------------------------------------------------------------
-%% @doc
-%% Requests the supervisor to terminate a population supervisor
-%%
+%% @doc Requests the supervisor to terminate a population supervisor
 %% @end
 %%--------------------------------------------------------------------
-start_agent(Supervisor, Agent_Id) ->
-    supervisor:start_child(Supervisor, ?SPECS_AGENTS(Population_Id)).
+start_agent(Id, Population) ->
+    Supervisor = Population#population.supervisor, 
+    {ok, _} = supervisor:start_child(Supervisor, ?SPECS_AGENT(Id)),
+    ok.
 
 %%%===================================================================
 %%% Supervisor callbacks
@@ -68,13 +68,20 @@ start_agent(Supervisor, Agent_Id) ->
 %% Optional keys are restart, shutdown, type, modules.
 %% Before OTP 18 tuples must be used to specify a child. e.g.
 %% Child :: {Id,StartFunc,Restart,Shutdown,Type,Modules}
-init([]) ->
-    SupFlags = #{strategy => one_for_all, %% If an element dies, all must shutdown
-                 intensity => 0, %% Restart is not allowed
-                 period => 10}, %% Any as intensity = 0
+init([Population_Id]) ->
+    SupFlags = #{strategy  => one_for_all, %% All down if one down
+                 intensity => 0,   %% Restart is not allowed
+                 period    => 10}, %% Any as intensity = 0
     ChildSpecs = [],
+    register_in_pool(Population_Id),
     {ok, {SupFlags, ChildSpecs}}.
 
 %%====================================================================
 %% Internal functions
 %%====================================================================
+
+register_in_pool(Population_Id) -> 
+    true = ets:update_element(?EV_POOL, Population_Id, [
+        {#population.supervisor, self()}
+    ]).
+
