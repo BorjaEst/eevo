@@ -24,23 +24,17 @@
 
 -record(ruler, {
     id = ?NEW_RULER_ID :: ruler:id(),
-    maximum    = 5     :: integer(), % Max agents per population
-    minimum    = 4     :: integer(), % Min agents per population
-    run_time   = infinity :: integer(), % Milliseconds of running time before pausing the population
-    run_agents = infinity :: integer(), % Number of Agents of tested before pausing the population
-    run_score  = infinity :: float(), % Score target before pausing the population
-    evo_alg_f  = fun evolutionary_algorithm:static_on_limit/2 :: function(),
-    sel_alg_f  = fun selection_algorithm:statistic_top_3/2 :: function()
+    size       = 5     :: integer(), % Aagents per population
+    run_time   = infinity :: integer(), % Time(ms) before end
+    run_agents = infinity :: integer(), % Tested agents before end
+    run_score  = infinity :: float(),   % Score target before end
+    selection :: function() % Selection function for pool agents
 }).
 -type ruler() :: #ruler{}.
 
 -record(agent, {
-    id :: agent:id(),
-    module :: module(),
-    properties :: #{},
-    mutation_f :: function(),
-    behaviour = gen_server :: module(),
-    father = none :: agent:id() % Id of the agent one generation back
+    id = ?NEW_AGENT_ID :: agent:id(),
+    father :: agent:id() % Id of the agent one generation back
 }). 
 -type agent() :: #agent{}.
 
