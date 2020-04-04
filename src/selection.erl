@@ -94,6 +94,15 @@ random_by_score([{Score,Id}|   _], Stop) when Score > Stop ->
 random_by_score([{Score, _}|SIdx], Stop)                   -> 
     random_by_score(SIdx, Stop - Score).
 
+random_by_score_test() -> 
+    ScoreAgents = [{50,a}, {30,b}, {20,c}],
+    ?assert(length([X 
+         || X <-[random_by_score(ScoreAgents)
+                    || _<-lists:seq(1,1000)], 
+            X==a
+        ]) > 400
+    ).
+
 
 %%====================================================================
 %% Eunit white box tests
