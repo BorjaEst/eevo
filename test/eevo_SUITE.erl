@@ -168,7 +168,7 @@ test_with_time_limit(_Config) ->
         _MutationF = fun test_agent:mutationF_example/1),
     Population_Id = eevo:population(?time_limit(?TEST_POP_TIME_LIMIT)),
     {ok, Gov_PId} = eevo:start(Population_Id),
-    ok = eevo:add_agent(Population_Id, Test_Agent_Id),
+    ok = eevo:add(Population_Id, Test_Agent_Id),
     timer:sleep(?TEST_POP_TIME_LIMIT),
     PopRun_Result = receive {run_end, Population_Id, Result} -> Result after 10 -> error(my_timeout) end,
     timer:sleep(40),
@@ -188,7 +188,7 @@ test_with_agents_limit(_Config) ->
         _MutationF = fun test_agent:mutationF_example/1),
     Population_Id = eevo:population(?agents_limit(?TEST_POP_AGENTS_LIMIT)),
     {ok, Gov_PId} = eevo:start(Population_Id),
-    ok = eevo:add_agent(Population_Id, Test_Agent_Id),
+    ok = eevo:add(Population_Id, Test_Agent_Id),
     timer:sleep(1000),
     PopRun_Result = receive {run_end, Population_Id, Result} -> Result after 10 -> error(my_timeout) end,
     timer:sleep(40),
@@ -208,7 +208,7 @@ test_with_score_limit(_Config) ->
         _MutationF = fun test_agent:mutationF_example/1),
     Population_Id = eevo:population(?score_limit(?TEST_POP_SCORE_LIMIT)),
     {ok, Gov_PId} = eevo:start(Population_Id),
-    ok = eevo:add_agent(Population_Id, Test_Agent_Id),
+    ok = eevo:add(Population_Id, Test_Agent_Id),
     timer:sleep(1000),
     PopRun_Result = receive {run_end, Population_Id, Result} -> Result after 10 -> error(my_timeout) end,
     timer:sleep(40),
@@ -257,8 +257,8 @@ correct_start(Population_Id) ->
 correct_agents_addition(Population_Id, TestAgents_Id) ->
     ?INFO("Correct addition of multiple agents into the population .............................."),
     {Async_Agents, [Last]} = lists:split(length(TestAgents_Id) - 1, TestAgents_Id),
-    [ok = eevo:add_agent(Population_Id, Agent_Id) || Agent_Id <- Async_Agents], % Asynchronous addition
-    {ok, Last_Agent_PId} = eevo:start_agent(Population_Id, Last), % Synchronous start
+    [ok = eevo:add(Population_Id, Agent_Id) || Agent_Id <- Async_Agents], % Asynchronous addition
+    {ok, Last_Agent_PId} = eevo:run(Population_Id, Last), % Synchronous start
     true = is_process_alive(Last_Agent_PId),
     timer:sleep(100), ?INFO(TestAgents_Id),
     true = is_process_alive(eevo:governor(Population_Id)),

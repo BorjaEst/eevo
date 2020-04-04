@@ -186,7 +186,7 @@ do_init([], State) ->
 
 handle_call({sync, Agent_Id}, _From, #state{limit = L, agents = Agents} = State) when L > length(Agents) ->
     ?LOG_INFO("handle_call Population_Id:~p --> agent ~p start", [State#state.id, Agent_Id]),
-    {Ref, PId} = handle_start_agent(Agent_Id, State#state.id, State#state.agents_sup),
+    {Ref, PId} = handle_run(Agent_Id, State#state.id, State#state.agents_sup),
     {reply, {ok, PId}, State#state{
         agents = orddict:store(Agent_Id, ?INIT_AGENT_SCORE, Agents),
         refs   = gb_trees:insert(Ref, Agent_Id, State#state.refs)}
@@ -227,7 +227,7 @@ handle_call(Request, _From, State) ->
 
 handle_cast({async, Agent_Id}, #state{limit = L, agents = Agents} = State) when L > length(Agents) ->
     ?LOG_INFO("handle_cast Population_Id:~p --> agent ~p start", [State#state.id, Agent_Id]),
-    {Ref, _PId} = handle_start_agent(Agent_Id, State#state.id, State#state.agents_sup),
+    {Ref, _PId} = handle_run(Agent_Id, State#state.id, State#state.agents_sup),
     {noreply, State#state{
         agents = orddict:store(Agent_Id, ?INIT_AGENT_SCORE, Agents),
         refs   = gb_trees:insert(Ref, Agent_Id, State#state.refs)}
@@ -349,7 +349,7 @@ population_result(State) ->
         running_time => (erlang:monotonic_time(millisecond) - State#state.start_time)}.
 
 % --------------------------------------------------------------------..................................................
-handle_start_agent(Agent_Id, Population_Id, Agents_Sup) ->
+handle_run(Agent_Id, Population_Id, Agents_Sup) ->
     {ok, PId} = agents_sup:start_agent(Agents_Sup, Population_Id, Agent_Id),
     {erlang:monitor(process, PId), PId}.
 
@@ -360,14 +360,14 @@ handle_queue(Out, #state{agents_counter = Counter, spawn_limit = Limit} = State)
         spawn_limit = alert_raised
     });
 handle_queue({value, {reply, From, Agent_Id}}, State) ->
-    {Ref, PId} = handle_start_agent(Agent_Id, State#state.id, State#state.agents_sup),
+    {Ref, PId} = handle_run(Agent_Id, State#state.id, State#state.agents_sup),
     gen_server:reply(From, {ok, PId}),
     State#state{
         agents = orddict:store(Agent_Id, ?INIT_AGENT_SCORE, State#state.agents),
         refs   = gb_trees:insert(Ref, Agent_Id, State#state.refs)
     };
 handle_queue({value, {noreply, Agent_Id}}, State) ->
-    {Ref, _PId} = handle_start_agent(Agent_Id, State#state.id, State#state.agents_sup),
+    {Ref, _PId} = handle_run(Agent_Id, State#state.id, State#state.agents_sup),
     State#state{
         agents = orddict:store(Agent_Id, ?INIT_AGENT_SCORE, State#state.agents),
         refs   = gb_trees:insert(Ref, Agent_Id, State#state.refs)
@@ -405,7 +405,7 @@ handle_evolution(State) ->
     _NewState = lists:foldl(fun(A_Id, S) -> handle_run_agent(A_Id, S) end, State, ListOfNewAgents).
 
 handle_run_agent(Agent_Id, #state{limit = L, agents = Agents} = State) when L > length(Agents) ->
-    {Ref, _PId} = handle_start_agent(Agent_Id, State#state.id, State#state.agents_sup),
+    {Ref, _PId} = handle_run(Agent_Id, State#state.id, State#state.agents_sup),
     State#state{
         agents = orddict:store(Agent_Id, ?INIT_AGENT_SCORE, Agents),
         refs   = gb_trees:insert(Ref, Agent_Id, State#state.refs)};

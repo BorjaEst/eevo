@@ -238,7 +238,7 @@ run_population(Population_Id) ->
     ?INFO("____________________________________________________________________________________OK"),
     
     ?INFO("Correct addition of multiple overloading agents into the population .................."),
-    [eevo:add_agent(Population_Id, Agent_Id) || Agent_Id <- TestAgents_Id],
+    [eevo:add(Population_Id, Agent_Id) || Agent_Id <- TestAgents_Id],
     timer:sleep(1000),
     true = is_process_alive(Gov_PId),
     eevo:stop(Population_Id),
