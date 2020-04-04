@@ -4,7 +4,7 @@
 %%%
 %%% @end
 %%%-------------------------------------------------------------------
--module(governor).
+-module(ruler).
 -compile([export_all, nowarn_export_all]). %%TODO: To delete after build
 
 -include_lib("eunit/include/eunit.hrl").
@@ -15,9 +15,17 @@
 
 %% API
 %%-export([start_link/0]).
+-export_types([id/0]).
 
 %% gen_server callbacks
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2, code_change/3]).
+
+-type id() :: {Ref :: reference(), ruler}.
+-type property()   :: todefine().
+-type properties() :: #{
+    OptionalProperty :: property() => Value :: term()
+}.
+
 
 -define(ETS_TABLE_OPTIONS, [ordered_set]).
 -define(INIT_AGENT_SCORE, 0.0).
@@ -64,8 +72,8 @@ start_link(Arguments) ->
 %%
 %% @end
 %%--------------------------------------------------------------------
-sync_queue(Governor, Agent_Id) ->
-    gen_server:call(Governor, {sync, Agent_Id}, ?STDCALL_TIMEOUT).
+sync_queue(Ruler, Agent_Id) ->
+    gen_server:call(Ruler, {sync, Agent_Id}, ?STDCALL_TIMEOUT).
 
 %%--------------------------------------------------------------------
 %% @doc
@@ -73,8 +81,8 @@ sync_queue(Governor, Agent_Id) ->
 %%
 %% @end
 %%--------------------------------------------------------------------
-async_queue(Governor, Agent_Id) ->
-    gen_server:cast(Governor, {async, Agent_Id}).
+async_queue(Ruler, Agent_Id) ->
+    gen_server:cast(Ruler, {async, Agent_Id}).
 
 %%--------------------------------------------------------------------
 %% @doc
@@ -82,8 +90,8 @@ async_queue(Governor, Agent_Id) ->
 %%
 %% @end
 %%--------------------------------------------------------------------
-stop(Governor, Agent_Id) ->
-    gen_server:call(Governor, {stop, Agent_Id}, ?STDCALL_TIMEOUT).
+stop(Ruler, Agent_Id) ->
+    gen_server:call(Ruler, {stop, Agent_Id}, ?STDCALL_TIMEOUT).
 
 
 %%--------------------------------------------------------------------
@@ -92,8 +100,8 @@ stop(Governor, Agent_Id) ->
 %%
 %% @end
 %%--------------------------------------------------------------------
-add_score(Governor, Agent_Id, Score, Score_Info) ->
-    gen_server:cast(Governor, {add_score, Agent_Id, Score, Score_Info}).
+add_score(Ruler, Agent_Id, Score, Score_Info) ->
+    gen_server:cast(Ruler, {add_score, Agent_Id, Score, Score_Info}).
 
 %%--------------------------------------------------------------------
 %% @doc
@@ -101,8 +109,8 @@ add_score(Governor, Agent_Id, Score, Score_Info) ->
 %%
 %% @end
 %%--------------------------------------------------------------------
-set_score(Governor, Agent_Id, Score, Score_Info) ->
-    gen_server:cast(Governor, {set_score, Agent_Id, Score, Score_Info}).
+set_score(Ruler, Agent_Id, Score, Score_Info) ->
+    gen_server:cast(Ruler, {set_score, Agent_Id, Score, Score_Info}).
 
 %%--------------------------------------------------------------------
 %% @doc
@@ -110,8 +118,8 @@ set_score(Governor, Agent_Id, Score, Score_Info) ->
 %%
 %% @end
 %%--------------------------------------------------------------------
-get_score_pool(Governor) ->
-    gen_server:call(Governor, get_score_pool, ?STDCALL_TIMEOUT).
+score_pool(Ruler) ->
+    gen_server:call(Ruler, get_score_pool, ?STDCALL_TIMEOUT).
 
 %%--------------------------------------------------------------------
 %% @doc
@@ -119,8 +127,8 @@ get_score_pool(Governor) ->
 %%
 %% @end
 %%--------------------------------------------------------------------
-trigger_evolution(Governor) ->
-    gen_server:cast(Governor, trigger_evolution).
+trigger_evolution(Ruler) ->
+    gen_server:cast(Ruler, trigger_evolution).
 
 %%%===================================================================
 %%% gen_server callbacks
@@ -401,7 +409,7 @@ handle_evolution(State) ->
     ScoreAgents_List = scoreAgents(ScorePool),
     NClonesToGenerate = EvolutionF(Limit, length(Agents)),
     AgentsToMutate = SelectionF(ScoreAgents_List, NClonesToGenerate),
-    ListOfNewAgents = [eevo:mutate_agent(Agent_Id) || Agent_Id <- AgentsToMutate],
+    ListOfNewAgents = [eevo:mutate(Agent_Id) || Agent_Id <- AgentsToMutate],
     _NewState = lists:foldl(fun(A_Id, S) -> handle_run_agent(A_Id, S) end, State, ListOfNewAgents).
 
 handle_run_agent(Agent_Id, #state{limit = L, agents = Agents} = State) when L > length(Agents) ->

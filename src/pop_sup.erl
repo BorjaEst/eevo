@@ -8,15 +8,15 @@
 -behaviour(supervisor).
 
 %% API
--export([start_link/0, start_governor/2, start_agents_supervisor/2]).
+-export([start_link/0, start_ruler/2, start_agents_supervisor/2]).
 
 %% Supervisor callbacks
 -export([init/1]).
 
--define(GOVERNOR_ID(Population_Id), {element(1, Population_Id), governor}).
--define(SPECS_GOVERNOR(Population_Id, Arguments), #{
-    id       => ?GOVERNOR_ID(Population_Id),
-    start    => {governor, start_link, [Arguments]},
+-define(RULER_ID(Population_Id), {element(1, Population_Id), ruler}).
+-define(SPECS_RULER(Population_Id, Arguments), #{
+    id       => ?RULER_ID(Population_Id),
+    start    => {ruler, start_link, [Arguments]},
     restart  => permanent,
     shutdown => 1000,
     modules  => [gen_server]}).
@@ -48,9 +48,9 @@ start_link() ->
 %%
 %% @end
 %%--------------------------------------------------------------------
-start_governor(Supervisor, Arguments) ->
+start_ruler(Supervisor, Arguments) ->
     Population_Id = maps:get(id, Arguments),
-    supervisor:start_child(Supervisor, ?SPECS_GOVERNOR(Population_Id, maps:to_list(Arguments))).
+    supervisor:start_child(Supervisor, ?SPECS_RULER(Population_Id, maps:to_list(Arguments))).
 
 %%--------------------------------------------------------------------
 %% @doc

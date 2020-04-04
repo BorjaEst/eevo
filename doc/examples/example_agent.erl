@@ -31,7 +31,7 @@
 
 -record(state, {
     id :: agent_id(),
-    governor :: pid(),
+    ruler :: pid(),
     properties :: #{}}).
 
 %%%===================================================================
@@ -87,13 +87,13 @@ test_mutation(Properties) ->
 -spec init(Args :: term()) ->
     {ok, State :: #state{}} | {ok, State :: #state{}, timeout() | hibernate} |
     {stop, Reason :: term()} | ignore).
-init([Agent_Id, Governor, Properties]) ->
+init([Agent_Id, Ruler, Properties]) ->
     process_flag(trap_exit, true), % Mandatory to catch supervisor exits
     timer:send_after(rand:uniform(10), score),
     timer:send_after(rand:uniform(10) * 100, terminate),
     {ok, #state{
         id         = Agent_Id,
-        governor   = Governor,
+        ruler   = Ruler,
         properties = Properties}}.
 
 %%--------------------------------------------------------------------
@@ -115,9 +115,9 @@ init([Agent_Id, Governor, Properties]) ->
     {stop, Reason :: term(), NewState :: #state{}}).
 
 handle_info(score, State) ->
-    #state{id = Agent_Id, governor = Governor, properties = Properties} = State,
+    #state{id = Agent_Id, ruler = Ruler, properties = Properties} = State,
     #{score_base := ScoreBase} = Properties,
-    eevo:add_score(Governor, Agent_Id, ScoreBase + rand:uniform(25)),
+    eevo:add_score(Ruler, Agent_Id, ScoreBase + rand:uniform(25)),
     {noreply, State};
 
 handle_info(terminate, State) ->
@@ -156,7 +156,7 @@ terminate(_Reason, _State) ->
 %%% Static functions (Do not modify)
 %%%===================================================================
 % This is done like this to save time on implementing a specific behaviour "Agent"
-start_link(Agent_Id, Governor, Properties) -> gen_server:start_link(?MODULE, [Agent_Id, Governor, Properties], []).
+start_link(Agent_Id, Ruler, Properties) -> gen_server:start_link(?MODULE, [Agent_Id, Ruler, Properties], []).
 handle_call(_Request, _From, State) -> {reply, ok, State}.
 handle_cast(_Request, State) -> {noreply, State}.
 code_change(_OldVsn, State, _Extra) -> {ok, State}.

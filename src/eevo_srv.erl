@@ -72,7 +72,7 @@ stop(Population_Id) ->
 %%
 %% @end
 %%--------------------------------------------------------------------
-governor(Population_Id) ->
+ruler(Population_Id) ->
     case gen_server:call(?SERVER, {population, Population_Id}, ?STDCALL_TIMEOUT) of
         {ok, {Gov, _Pop_Sup}} -> Gov;
         Error -> Error
@@ -232,7 +232,7 @@ code_change(_OldVsn, State, _Extra) ->
 handle_start_population(Population_Id, State, {Owner, _Tag} = _From) ->
     #state{refs = Refs, populations = Populations} = State,
     {ok, Pop_Sup} = eevo_sup:start_population_supervisor(Population_Id),
-    {ok, Gov} = pop_sup:start_governor(Pop_Sup, #{
+    {ok, Gov} = pop_sup:start_ruler(Pop_Sup, #{
         id           => Population_Id,
         owner        => Owner,
         report_path => State#state.report_path

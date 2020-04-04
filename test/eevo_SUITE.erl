@@ -248,7 +248,7 @@ correct_start(Population_Id) ->
     ?INFO("Correct start of a population form a defined demography .............................."),
     {ok, Gov_PId} = eevo:start(Population_Id),
     timer:sleep(10),
-    true = Gov_PId == eevo:governor(Population_Id),
+    true = Gov_PId == eevo:ruler(Population_Id),
     true = is_process_alive(Gov_PId),
     ?INFO("____________________________________________________________________________________OK"),
     {ok, Gov_PId}.
@@ -261,8 +261,8 @@ correct_agents_addition(Population_Id, TestAgents_Id) ->
     {ok, Last_Agent_PId} = eevo:run(Population_Id, Last), % Synchronous start
     true = is_process_alive(Last_Agent_PId),
     timer:sleep(100), ?INFO(TestAgents_Id),
-    true = is_process_alive(eevo:governor(Population_Id)),
-    PoolList = ets:tab2list(eevo:get_score_pool(Population_Id)), ?INFO(PoolList),
+    true = is_process_alive(eevo:ruler(Population_Id)),
+    PoolList = ets:tab2list(eevo:score_pool(Population_Id)), ?INFO(PoolList),
     L = length([Score || {{Score, A2}, _} <- PoolList, A1 <- TestAgents_Id, A1 == A2]), ?INFO(L),
     L = length(TestAgents_Id),
     ?INFO("____________________________________________________________________________________OK"),
@@ -271,9 +271,9 @@ correct_agents_addition(Population_Id, TestAgents_Id) ->
 % --------------------------------------------------------------------..................................................
 correct_population_evolution(Population_Id) ->
     ?INFO("Correct population evolution ........................................................."),
-    Top5_1 = eevo:get_top(Population_Id, 5),
+    Top5_1 = eevo:top(Population_Id, 5),
     timer:sleep(400),
-    Top5_2 = eevo:get_top(Population_Id, 5),
+    Top5_2 = eevo:top(Population_Id, 5),
     ?INFO(Top5_1),
     ?INFO(Top5_2),
     true = Top5_1 /= Top5_2,
@@ -283,10 +283,10 @@ correct_population_evolution(Population_Id) ->
 % --------------------------------------------------------------------..................................................
 correct_stop(Population_Id) ->
     ?INFO("The population is correctly killed ..................................................."),
-    Governor_PId = eevo:governor(Population_Id),
-    true = is_process_alive(Governor_PId),
+    Ruler_PId = eevo:ruler(Population_Id),
+    true = is_process_alive(Ruler_PId),
     ok = eevo:stop(Population_Id),
-    false = is_process_alive(Governor_PId),
+    false = is_process_alive(Ruler_PId),
     ?INFO("____________________________________________________________________________________OK"),
     ok.
 
