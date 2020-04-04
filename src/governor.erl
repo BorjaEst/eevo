@@ -1,10 +1,8 @@
 %%%-------------------------------------------------------------------
 %%% @author borja
-%%% @copyright (C) 2018, <COMPANY>
 %%% @doc
 %%%
 %%% @end
-%%% Created : 22. Aug 2018 13:08
 %%%-------------------------------------------------------------------
 -module(governor).
 -compile([export_all, nowarn_export_all]). %%TODO: To delete after build

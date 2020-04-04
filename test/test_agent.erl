@@ -1,10 +1,8 @@
 %%%-------------------------------------------------------------------
 %%% @author borja
-%%% @copyright (C) 2018, <COMPANY>
 %%% @doc
 %%%
 %%% @end
-%%% Created : 23. Sep 2018 12:25
 %%%-------------------------------------------------------------------
 -module(test_agent).
 -compile([export_all, nowarn_export_all]). %%TODO: To delete after build

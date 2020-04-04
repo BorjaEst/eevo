@@ -1,10 +1,8 @@
 %%%-------------------------------------------------------------------
 %%% @author borja
-%%% @copyright (C) 2019, <COMPANY>
 %%% @doc
 %%%
 %%% @end
-%%% Created : 05. Jan 2019 9:00
 %%%-------------------------------------------------------------------
 -module(eevo_srv).
 -compile([export_all, nowarn_export_all]). %%TODO: To delete after build
