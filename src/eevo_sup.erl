@@ -7,29 +7,31 @@
 -module(eevo_sup).
 -behaviour(supervisor).
 
+-include_lib("society.hrl").
+
 %% API
--export([start_link/1, start_supervisor/1, stop_supervisor/1]).
+-export([start_link/1, start_population/1, stop_population/1]).
 
 %% Supervisor callbacks
 -export([init/1]).
 
 -define(SERVER, ?MODULE).
 
--define(SPECS_EEVO_SRV(StartArgs), #{
-    id       => eevo_srv,
-    start    => {eevo_srv, start_link, [StartArgs]},
+-define(SPECS_DATALOG, #{
+    id       => datalog,
+    start    => {datalog, start_link, []},
     restart  => permanent,
-    shutdown => 1000,
-    modules  => [gen_server]}).
-
--define(POP_SUP_ID(Population_Id),
-    {element(1, Population_Id), pop_sup}).
+    shutdown => 500,
+    modules  => [gen_server]
+ }).
+-define(POP_SUP_ID(Pop_Id), {element(1, Pop_Id), pop_sup}).
 -define(SPECS_POP_SUP(Population_Id), #{
     id       => ?POP_SUP_ID(Population_Id),
     start    => {pop_sup, start_link, []},
     restart  => temporary,
     type     => supervisor,
-    modules  => [supervisor]}).
+    modules  => [supervisor]
+}).
 
 %%====================================================================
 %% API functions
@@ -46,15 +48,23 @@ start_link(StartArgs) ->
 %% @doc Requests the supervisor to start a population supervisor 
 %% @end
 %%--------------------------------------------------------------------
-start_supervisor(Population_Id) ->
-    supervisor:start_child(?SERVER, ?SPECS_POP_SUP(Population_Id)).
+start_population(Pop_Id) ->
+    true = ets:insert(?EV_POOL, #population{id = Pop_Id}),
+    {ok, Pop_Sup} = supervisor:start_child(?SERVER, 
+                                           ?SPECS_POP_SUP(Pop_Id)),
+    {ok, _}       = pop_sup:start_ruler(Pop_Sup, Pop_Id),
+    ok. 
 
 %%--------------------------------------------------------------------
 %% @doc Requests the supervisor to terminate a population supervisor
 %% @end
 %%--------------------------------------------------------------------
-stop_supervisor(Population_Id) ->
-    supervisor:terminate_child(?SERVER, ?POP_SUP_ID(Population_Id)).
+stop_population(Pop_Id) ->
+    case supervisor:terminate_child(?SERVER, ?POP_SUP_ID(Pop_Id)) of
+        ok   -> true = ets:delete(?EV_POOL, Pop_Id), ok;
+        Fail -> Fail
+    end.
+
 
 %%====================================================================
 %% Supervisor callbacks
@@ -64,15 +74,21 @@ stop_supervisor(Population_Id) ->
 %% Optional keys are restart, shutdown, type, modules.
 %% Before OTP 18 tuples must be used to specify a child. e.g.
 %% Child :: {Id,StartFunc,Restart,Shutdown,Type,Modules}
-init(StartArgs) ->
+init([]) ->
     SupFlags = #{strategy  => rest_for_one, % Avoid populations alive if eevo_srv dies
                  intensity => 10,
                  period    => 36},
     ChildSpecs = [
-        ?SPECS_EEVO_SRV(StartArgs)
+        ?SPECS_DATALOG
     ],
+    start_ev_pool(),
     {ok, {SupFlags, ChildSpecs}}.
 
+    
 %%====================================================================
 %% Internal functions
 %%====================================================================
+
+start_ev_pool() ->  
+    ets:new(?EV_POOL, ?EV_POOL_OPTIONS).
+
