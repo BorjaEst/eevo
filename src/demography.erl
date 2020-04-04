@@ -34,7 +34,9 @@
 
 -record(agent, {
     id = ?NEW_AGENT_ID :: agent:id(),
-    father :: agent:id() % Id of the agent one generation back
+    function    :: function(), % Function to perform
+    arguments   :: term(),     % Arguments of the function
+    father      :: agent:id()  % Id of the agent one generation back
 }). 
 -type agent() :: #agent{}.
 
@@ -117,6 +119,27 @@ edit_ruler(Ruler, []) ->
 -spec id(Element :: agent() | ruler()) -> id().
 id(Element) when is_record(Element, agent) -> Element#agent.id;
 id(Element) when is_record(Element, ruler) -> Element#ruler.id.
+
+%%--------------------------------------------------------------------
+%% @doc Returns the agent function.
+%% @end
+%%--------------------------------------------------------------------
+-spec function(Agent :: agent()) -> function().
+function(Agent) when is_record(Agent, agent) -> Agent#agent.function.
+
+%%--------------------------------------------------------------------
+%% @doc Returns the agent arguments.
+%% @end
+%%--------------------------------------------------------------------
+-spec arguments(Agent :: agent()) -> term().
+arguments(Agent) when is_record(Agent,agent) -> Agent#agent.arguments.
+
+%%--------------------------------------------------------------------
+%% @doc Returns the agent father.
+%% @end
+%%--------------------------------------------------------------------
+-spec father(Agent :: agent()) -> agent:id() | undefined.
+father(Agent) when is_record(Agent, agent) -> Agent#agent.father.
 
 %%--------------------------------------------------------------------
 %% @doc Returns the genealogical tree of an agent
