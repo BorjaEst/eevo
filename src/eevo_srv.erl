@@ -22,11 +22,11 @@
 -define(SERVER, ?MODULE).
 -define(MAX_PARALLEL_POPULATIONS, 4).
 -record(state, {
-	limit = ?MAX_PARALLEL_POPULATIONS :: integer(),
-	populations = orddict:new() :: [{Pop_Id :: population_id(), {Gov :: pid(), Pop_Sup :: pid()}}],
-	refs = gb_trees:empty() :: {Ref :: reference(), Pop_Id :: population_id()},
-	queue = queue:new(),
-	report_path = ?DEFAULT_RESULTS_PATH
+    limit = ?MAX_PARALLEL_POPULATIONS :: integer(),
+    populations = orddict:new() :: [{Pop_Id :: population_id(), {Gov :: pid(), Pop_Sup :: pid()}}],
+    refs = gb_trees:empty() :: {Ref :: reference(), Pop_Id :: population_id()},
+    queue = queue:new(),
+    report_path = ?DEFAULT_RESULTS_PATH
 }).
 
 -ifdef(debug_mode).
@@ -46,7 +46,7 @@
 %% @end
 %%--------------------------------------------------------------------
 start_link(StartArgs) ->
-	gen_server:start_link({local, ?SERVER}, ?MODULE, StartArgs, []).
+    gen_server:start_link({local, ?SERVER}, ?MODULE, StartArgs, []).
 
 %%--------------------------------------------------------------------
 %% @doc
@@ -55,7 +55,7 @@ start_link(StartArgs) ->
 %% @end
 %%--------------------------------------------------------------------
 run(Population_Id) ->
-	{ok, {_Gov, _Pop_Sup}} = gen_server:call(?SERVER, {run, Population_Id}, ?STDCALL_TIMEOUT).
+    {ok, {_Gov, _Pop_Sup}} = gen_server:call(?SERVER, {run, Population_Id}, ?STDCALL_TIMEOUT).
 
 %%--------------------------------------------------------------------
 %% @doc
@@ -64,7 +64,7 @@ run(Population_Id) ->
 %% @end
 %%--------------------------------------------------------------------
 stop(Population_Id) ->
-	_Result = gen_server:call(?SERVER, {stop, Population_Id}, ?STDCALL_TIMEOUT).
+    _Result = gen_server:call(?SERVER, {stop, Population_Id}, ?STDCALL_TIMEOUT).
 
 %%--------------------------------------------------------------------
 %% @doc
@@ -73,10 +73,10 @@ stop(Population_Id) ->
 %% @end
 %%--------------------------------------------------------------------
 governor(Population_Id) ->
-	case gen_server:call(?SERVER, {population, Population_Id}, ?STDCALL_TIMEOUT) of
-		{ok, {Gov, _Pop_Sup}} -> Gov;
-		Error -> Error
-	end.
+    case gen_server:call(?SERVER, {population, Population_Id}, ?STDCALL_TIMEOUT) of
+        {ok, {Gov, _Pop_Sup}} -> Gov;
+        Error -> Error
+    end.
 
 %%--------------------------------------------------------------------
 %% @doc
@@ -85,10 +85,10 @@ governor(Population_Id) ->
 %% @end
 %%--------------------------------------------------------------------
 pop_sup(Population_Id) ->
-	case gen_server:call(?SERVER, {population, Population_Id}, ?STDCALL_TIMEOUT) of
-		{ok, {_Gov, Pop_Sup}} -> Pop_Sup;
-		Error -> Error
-	end.
+    case gen_server:call(?SERVER, {population, Population_Id}, ?STDCALL_TIMEOUT) of
+        {ok, {_Gov, Pop_Sup}} -> Pop_Sup;
+        Error -> Error
+    end.
 
 %%%===================================================================
 %%% gen_server callbacks
@@ -106,16 +106,16 @@ pop_sup(Population_Id) ->
 %% @end
 %%--------------------------------------------------------------------
 -spec(init(Args :: term()) ->
-	{ok, State :: #state{}} | {ok, State :: #state{}, timeout() | hibernate} |
-	{stop, Reason :: term()} | ignore).
+    {ok, State :: #state{}} | {ok, State :: #state{}, timeout() | hibernate} |
+    {stop, Reason :: term()} | ignore).
 init(StartArgs) ->
-	do_init(StartArgs, #state{}).
+    do_init(StartArgs, #state{}).
 
 do_init([{report_path, Path} | StartArgs], State) ->
-	do_init(StartArgs, State#state{report_path = Path});
+    do_init(StartArgs, State#state{report_path = Path});
 do_init([], State) ->
-	file:make_dir(State#state.report_path),
-	{ok, State}.
+    file:make_dir(State#state.report_path),
+    {ok, State}.
 
 
 %%--------------------------------------------------------------------
@@ -127,30 +127,30 @@ do_init([], State) ->
 %%--------------------------------------------------------------------
 -spec(handle_call(Request :: term(), From :: {pid(), Tag :: term()},
                   State :: #state{}) ->
-	                 {reply, Reply :: term(), NewState :: #state{}} |
-	                 {reply, Reply :: term(), NewState :: #state{}, timeout() | hibernate} |
-	                 {noreply, NewState :: #state{}} |
-	                 {noreply, NewState :: #state{}, timeout() | hibernate} |
-	                 {stop, Reason :: term(), Reply :: term(), NewState :: #state{}} |
-	                 {stop, Reason :: term(), NewState :: #state{}}).
+                     {reply, Reply :: term(), NewState :: #state{}} |
+                     {reply, Reply :: term(), NewState :: #state{}, timeout() | hibernate} |
+                     {noreply, NewState :: #state{}} |
+                     {noreply, NewState :: #state{}, timeout() | hibernate} |
+                     {stop, Reason :: term(), Reply :: term(), NewState :: #state{}} |
+                     {stop, Reason :: term(), NewState :: #state{}}).
 
 handle_call({run, Pop_Id}, From, #state{limit = L, populations = Populations} = State) when L > length(Populations) ->
-	handle_start_population(Pop_Id, State, From);
+    handle_start_population(Pop_Id, State, From);
 handle_call({run, Pop_Id}, From, State) ->
-	#state{queue = Q} = State,
-	{noreply, State#state{queue = queue:in({From, Pop_Id}, Q)}};
+    #state{queue = Q} = State,
+    {noreply, State#state{queue = queue:in({From, Pop_Id}, Q)}};
 
 handle_call({stop, Pop_Id}, _From, State) ->
-	Reply = eevo_sup:terminate_population_supervisor(Pop_Id),
-	{reply, Reply, State};
+    Reply = eevo_sup:terminate_population_supervisor(Pop_Id),
+    {reply, Reply, State};
 
 handle_call({population, Pop_Id}, _From, State) ->
-	Reply = orddict:find(Pop_Id, State#state.populations),
-	{reply, Reply, State};
+    Reply = orddict:find(Pop_Id, State#state.populations),
+    {reply, Reply, State};
 
 handle_call(Request, From, State) ->
-	?LOG_WARNING("Unknown handle_call eevo_srv, request ~p, from ~p", [Request, From]),
-	{reply, ok, State}.
+    ?LOG_WARNING("Unknown handle_call eevo_srv, request ~p, from ~p", [Request, From]),
+    {reply, ok, State}.
 
 %%--------------------------------------------------------------------
 %% @private
@@ -160,12 +160,12 @@ handle_call(Request, From, State) ->
 %% @end
 %%--------------------------------------------------------------------
 -spec(handle_cast(Request :: term(), State :: #state{}) ->
-	{noreply, NewState :: #state{}} |
-	{noreply, NewState :: #state{}, timeout() | hibernate} |
-	{stop, Reason :: term(), NewState :: #state{}}).
+    {noreply, NewState :: #state{}} |
+    {noreply, NewState :: #state{}, timeout() | hibernate} |
+    {stop, Reason :: term(), NewState :: #state{}}).
 handle_cast(Request, State) ->
-	?LOG_WARNING("Unknown handle_cast eevo_srv, request ~p", [Request]),
-	{noreply, State}.
+    ?LOG_WARNING("Unknown handle_cast eevo_srv, request ~p", [Request]),
+    {noreply, State}.
 
 %%--------------------------------------------------------------------
 %% @private
@@ -178,20 +178,20 @@ handle_cast(Request, State) ->
 %% @end
 %%--------------------------------------------------------------------
 -spec(handle_info(Info :: timeout() | term(), State :: #state{}) ->
-	{noreply, NewState :: #state{}} |
-	{noreply, NewState :: #state{}, timeout() | hibernate} |
-	{stop, Reason :: term(), NewState :: #state{}}).
+    {noreply, NewState :: #state{}} |
+    {noreply, NewState :: #state{}, timeout() | hibernate} |
+    {stop, Reason :: term(), NewState :: #state{}}).
 
 handle_info({'DOWN', Ref, process, PId, Info}, State) ->
-%%	?LOG({"RIP Population: ", PId, Info}),
-	case gb_trees:is_defined(Ref, State#state.refs) of
-		true -> handle_down_population(Ref, State);
-		false -> error({"Incorrect 'DOWN' message", {'DOWN', Ref, process, PId, Info}})
-	end;
+%%    ?LOG({"RIP Population: ", PId, Info}),
+    case gb_trees:is_defined(Ref, State#state.refs) of
+        true -> handle_down_population(Ref, State);
+        false -> error({"Incorrect 'DOWN' message", {'DOWN', Ref, process, PId, Info}})
+    end;
 
 handle_info(Info, State) ->
-	?LOG_WARNING("Unknown handle_info eevo_srv, info ~p", [Info]),
-	{noreply, State}.
+    ?LOG_WARNING("Unknown handle_info eevo_srv, info ~p", [Info]),
+    {noreply, State}.
 
 %%--------------------------------------------------------------------
 %% @private
@@ -207,8 +207,8 @@ handle_info(Info, State) ->
 -spec(terminate(Reason :: (normal | shutdown | {shutdown, term()} | term()),
                 State :: #state{}) -> term()).
 terminate(Reason, _State) ->
-	?LOG_INFO("terminate eevo_srv, reason ~p", [Reason]),
-	ok.
+    ?LOG_INFO("terminate eevo_srv, reason ~p", [Reason]),
+    ok.
 
 %%--------------------------------------------------------------------
 %% @private
@@ -220,9 +220,9 @@ terminate(Reason, _State) ->
 %%--------------------------------------------------------------------
 -spec(code_change(OldVsn :: term() | {down, term()}, State :: #state{},
                   Extra :: term()) ->
-	                 {ok, NewState :: #state{}} | {error, Reason :: term()}).
+                     {ok, NewState :: #state{}} | {error, Reason :: term()}).
 code_change(_OldVsn, State, _Extra) ->
-	{ok, State}.
+    {ok, State}.
 
 %%%===================================================================
 %%% Internal functions
@@ -230,29 +230,29 @@ code_change(_OldVsn, State, _Extra) ->
 
 % ......................................................................................................................
 handle_start_population(Population_Id, State, {Owner, _Tag} = _From) ->
-	#state{refs = Refs, populations = Populations} = State,
-	{ok, Pop_Sup} = eevo_sup:start_population_supervisor(Population_Id),
-	{ok, Gov} = pop_sup:start_governor(Pop_Sup, #{
-		id           => Population_Id,
-		owner        => Owner,
-		report_path => State#state.report_path
-	}),
-	Ref = erlang:monitor(process, Pop_Sup),
-	{reply, {ok, {Gov, Pop_Sup}}, State#state{populations = orddict:store(Population_Id, {Gov, Pop_Sup}, Populations),
-	                                          refs        = gb_trees:insert(Ref, Population_Id, Refs)}}.
+    #state{refs = Refs, populations = Populations} = State,
+    {ok, Pop_Sup} = eevo_sup:start_population_supervisor(Population_Id),
+    {ok, Gov} = pop_sup:start_governor(Pop_Sup, #{
+        id           => Population_Id,
+        owner        => Owner,
+        report_path => State#state.report_path
+    }),
+    Ref = erlang:monitor(process, Pop_Sup),
+    {reply, {ok, {Gov, Pop_Sup}}, State#state{populations = orddict:store(Population_Id, {Gov, Pop_Sup}, Populations),
+                                              refs        = gb_trees:insert(Ref, Population_Id, Refs)}}.
 
 % ......................................................................................................................
 handle_down_population(Ref, State) ->
-	#state{refs = Refs, populations = Populations, queue = Queue} = State,
-	DeadPopulation_Id = gb_trees:get(Ref, Refs),
-	UpdtState = State#state{
-		populations = orddict:erase(DeadPopulation_Id, Populations),
-		refs        = gb_trees:delete(Ref, Refs)},
-	case queue:out(Queue) of
-		{{value, {From, NewPopulation_Id}}, Q} ->
-			{_, Reply, NewState} = handle_start_population(NewPopulation_Id, UpdtState, From),
-			gen_server:reply(From, Reply),
-			{noreply, NewState#state{queue = Q}};
-		{empty, _} ->
-			{noreply, UpdtState}
-	end.
+    #state{refs = Refs, populations = Populations, queue = Queue} = State,
+    DeadPopulation_Id = gb_trees:get(Ref, Refs),
+    UpdtState = State#state{
+        populations = orddict:erase(DeadPopulation_Id, Populations),
+        refs        = gb_trees:delete(Ref, Refs)},
+    case queue:out(Queue) of
+        {{value, {From, NewPopulation_Id}}, Q} ->
+            {_, Reply, NewState} = handle_start_population(NewPopulation_Id, UpdtState, From),
+            gen_server:reply(From, Reply),
+            {noreply, NewState#state{queue = Q}};
+        {empty, _} ->
+            {noreply, UpdtState}
+    end.

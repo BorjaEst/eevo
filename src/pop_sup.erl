@@ -15,19 +15,19 @@
 
 -define(GOVERNOR_ID(Population_Id), {element(1, Population_Id), governor}).
 -define(SPECS_GOVERNOR(Population_Id, Arguments), #{
-	id       => ?GOVERNOR_ID(Population_Id),
-	start    => {governor, start_link, [Arguments]},
-	restart  => permanent,
-	shutdown => 1000,
-	modules  => [gen_server]}).
+    id       => ?GOVERNOR_ID(Population_Id),
+    start    => {governor, start_link, [Arguments]},
+    restart  => permanent,
+    shutdown => 1000,
+    modules  => [gen_server]}).
 
 -define(AGENTS_SUP_ID(Population_Id), {element(2, Population_Id), agents_sup}).
 -define(SPECS_AGENTS_SUP(Population_Id), #{
-	id       => ?AGENTS_SUP_ID(Population_Id),
-	start    => {agents_sup, start_link, []},
-	restart  => permanent,
-	type     => supervisor,
-	modules  => [supervisor]}).
+    id       => ?AGENTS_SUP_ID(Population_Id),
+    start    => {agents_sup, start_link, []},
+    restart  => permanent,
+    type     => supervisor,
+    modules  => [supervisor]}).
 
 %%%===================================================================
 %%% API functions
@@ -40,7 +40,7 @@
 %% @end
 %%--------------------------------------------------------------------
 start_link() ->
-	supervisor:start_link(?MODULE, []).
+    supervisor:start_link(?MODULE, []).
 
 %%--------------------------------------------------------------------
 %% @doc
@@ -49,8 +49,8 @@ start_link() ->
 %% @end
 %%--------------------------------------------------------------------
 start_governor(Supervisor, Arguments) ->
-	Population_Id = maps:get(id, Arguments),
-	supervisor:start_child(Supervisor, ?SPECS_GOVERNOR(Population_Id, maps:to_list(Arguments))).
+    Population_Id = maps:get(id, Arguments),
+    supervisor:start_child(Supervisor, ?SPECS_GOVERNOR(Population_Id, maps:to_list(Arguments))).
 
 %%--------------------------------------------------------------------
 %% @doc
@@ -59,7 +59,7 @@ start_governor(Supervisor, Arguments) ->
 %% @end
 %%--------------------------------------------------------------------
 start_agents_supervisor(Supervisor, Population_Id) ->
-	supervisor:start_child(Supervisor, ?SPECS_AGENTS_SUP(Population_Id)).
+    supervisor:start_child(Supervisor, ?SPECS_AGENTS_SUP(Population_Id)).
 
 %%%===================================================================
 %%% Supervisor callbacks
@@ -70,11 +70,11 @@ start_agents_supervisor(Supervisor, Population_Id) ->
 %% Before OTP 18 tuples must be used to specify a child. e.g.
 %% Child :: {Id,StartFunc,Restart,Shutdown,Type,Modules}
 init([]) ->
-	SupFlags = #{strategy => one_for_all, %% If an element dies, all must shutdown
-	             intensity => 0, %% Restart is not allowed
-	             period => 10}, %% Any as intensity = 0
-	ChildSpecs = [],
-	{ok, {SupFlags, ChildSpecs}}.
+    SupFlags = #{strategy => one_for_all, %% If an element dies, all must shutdown
+                 intensity => 0, %% Restart is not allowed
+                 period => 10}, %% Any as intensity = 0
+    ChildSpecs = [],
+    {ok, {SupFlags, ChildSpecs}}.
 
 %%====================================================================
 %% Internal functions

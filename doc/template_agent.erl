@@ -24,9 +24,9 @@
 -define(AGENT, ?MODULE).
 
 -record(state, {
-	id :: agent_id(),
-	governor :: pid(),
-	properties :: #{}}).
+    id :: agent_id(),
+    governor :: pid(),
+    properties :: #{}}).
 
 %%%===================================================================
 %%% agent callbacks as gen_server
@@ -44,15 +44,15 @@
 %% @end
 %%--------------------------------------------------------------------
 -spec(init(Args :: term()) ->
-	{ok, State :: #state{}} | {ok, State :: #state{}, timeout() | hibernate} |
-	{stop, Reason :: term()} | ignore).
+    {ok, State :: #state{}} | {ok, State :: #state{}, timeout() | hibernate} |
+    {stop, Reason :: term()} | ignore).
 init([Agent_Id, Governor, Properties]) ->
-	process_flag(trap_exit, true), % Mandatory to catch supervisor exits
-	timer:send_after(rand:uniform(10) * 100, terminate),
-	{ok, #state{
-		id         = Agent_Id,
-		governor   = Governor,
-		properties = Properties}}.
+    process_flag(trap_exit, true), % Mandatory to catch supervisor exits
+    timer:send_after(rand:uniform(10) * 100, terminate),
+    {ok, #state{
+        id         = Agent_Id,
+        governor   = Governor,
+        properties = Properties}}.
 
 %%--------------------------------------------------------------------
 %% @private
@@ -68,15 +68,15 @@ init([Agent_Id, Governor, Properties]) ->
 %% @end
 %%--------------------------------------------------------------------
 -spec(handle_info(Info :: timeout() | term(), State :: #state{}) ->
-	{noreply, NewState :: #state{}} |
-	{noreply, NewState :: #state{}, timeout() | hibernate} |
-	{stop, Reason :: term(), NewState :: #state{}}).
+    {noreply, NewState :: #state{}} |
+    {noreply, NewState :: #state{}, timeout() | hibernate} |
+    {stop, Reason :: term(), NewState :: #state{}}).
 
 handle_info(terminate, State) ->
-	{stop, normal, State};
+    {stop, normal, State};
 
 handle_info(_Info, State) ->
-	{noreply, State}.
+    {noreply, State}.
 
 %%--------------------------------------------------------------------
 %% @private
@@ -94,7 +94,7 @@ handle_info(_Info, State) ->
 -spec(terminate(Reason :: (normal | shutdown | {shutdown, term()} | term()),
                 State :: #state{}) -> term()).
 terminate(_Reason, _State) ->
-	ok.
+    ok.
 
 %%%===================================================================
 %%% Internal functions

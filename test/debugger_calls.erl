@@ -16,10 +16,10 @@
 
 %% TESTS CALLS
 eevo_SUITE() ->
-	ct:run_test([{suite, eevo_SUITE} | ?DEFAULT_OPTIONS]).
+    ct:run_test([{suite, eevo_SUITE} | ?DEFAULT_OPTIONS]).
 
 algorithms_SUITE() ->
-	ct:run_test([{suite, algorithms_SUITE} | ?DEFAULT_OPTIONS]).
+    ct:run_test([{suite, algorithms_SUITE} | ?DEFAULT_OPTIONS]).
 
 
 

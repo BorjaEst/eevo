@@ -5,7 +5,9 @@
 %%% @end
 %%%-------------------------------------------------------------------
 -module(agents_sup).
+
 -include_lib("society.hrl").
+
 -behaviour(supervisor).
 
 %% API
@@ -15,18 +17,18 @@
 -export([init/1]).
 
 %%-define(SPECS_GEN_AGENT(Agent_Id, Fun, Properties), #{
-%%	id       => Agent_Id,
-%%	start    => MFA,
-%%	restart  => temporary,
-%%	shutdown => 100,
-%%	modules  => [gen_agent]}). % TODO: To modify if the behaviour changes
+%%    id       => Agent_Id,
+%%    start    => MFA,
+%%    restart  => temporary,
+%%    shutdown => 100,
+%%    modules  => [gen_agent]}). % TODO: To modify if the behaviour changes
 
 -define(SPECS_GEN_SERVER(Agent_Id, MFA), #{
-	id       => Agent_Id,
-	start    => MFA,
-	restart  => temporary,
-	shutdown => 100,
-	modules  => [gen_server]}).
+    id       => Agent_Id,
+    start    => MFA,
+    restart  => temporary,
+    shutdown => 100,
+    modules  => [gen_server]}).
 
 
 %%%===================================================================
@@ -40,7 +42,7 @@
 %% @end
 %%--------------------------------------------------------------------
 start_link() ->
-	supervisor:start_link(?MODULE, []).
+    supervisor:start_link(?MODULE, []).
 
 %%--------------------------------------------------------------------
 %% @doc
@@ -49,20 +51,20 @@ start_link() ->
 %% @end
 %%--------------------------------------------------------------------
 start_agent(Supervisor, Population_Id, Agent_Id) ->
-	#agent{behaviour  = Behaviour,
-	       module     = Mod,
-	       properties = Properties} = nndb:read(Agent_Id),
-	Specs = case Behaviour of
-		        gen_server ->
-			        ?SPECS_GEN_SERVER(Agent_Id, {Mod, start_link, [Agent_Id, Population_Id, Properties]});
-		        gen_statem ->
-			        error("agent behaviour *gen_statem not implemented on this version");
-		        supervisor ->
-			        error("agent behaviour *supervisor not implemented on this version");
-		        _Other ->
-			        error("agent behaviour *gen_agent not implemented on this version")
-	        end,
-	supervisor:start_child(Supervisor, Specs).
+    #agent{behaviour  = Behaviour,
+           module     = Mod,
+           properties = Properties} = nndb:read(Agent_Id),
+    Specs = case Behaviour of
+                gen_server ->
+                    ?SPECS_GEN_SERVER(Agent_Id, {Mod, start_link, [Agent_Id, Population_Id, Properties]});
+                gen_statem ->
+                    error("agent behaviour *gen_statem not implemented on this version");
+                supervisor ->
+                    error("agent behaviour *supervisor not implemented on this version");
+                _Other ->
+                    error("agent behaviour *gen_agent not implemented on this version")
+            end,
+    supervisor:start_child(Supervisor, Specs).
 
 %%--------------------------------------------------------------------
 %% @doc
@@ -71,7 +73,7 @@ start_agent(Supervisor, Population_Id, Agent_Id) ->
 %% @end
 %%--------------------------------------------------------------------
 stop_agent(Supervisor, Agent_Id) ->
-	supervisor:terminate_child(Supervisor, Agent_Id).
+    supervisor:terminate_child(Supervisor, Agent_Id).
 
 %%%===================================================================
 %%% Supervisor callbacks
@@ -88,17 +90,17 @@ stop_agent(Supervisor, Agent_Id) ->
 %% @end
 %%--------------------------------------------------------------------
 -spec(init(Args :: term()) ->
-	{ok, {SupFlags :: {RestartStrategy :: supervisor:strategy(),
-	                   MaxR :: non_neg_integer(), MaxT :: non_neg_integer()},
-	      [ChildSpec :: supervisor:child_spec()]}} |
-	ignore |
-	{error, Reason :: term()}).
+    {ok, {SupFlags :: {RestartStrategy :: supervisor:strategy(),
+                       MaxR :: non_neg_integer(), MaxT :: non_neg_integer()},
+          [ChildSpec :: supervisor:child_spec()]}} |
+    ignore |
+    {error, Reason :: term()}).
 init([]) ->
-	SupFlags = #{strategy => one_for_one,
-	             intensity => 10,
-	             period => 36},
-	ChildSpecs = [],
-	{ok, {SupFlags, ChildSpecs}}.
+    SupFlags = #{strategy => one_for_one,
+                 intensity => 10,
+                 period => 36},
+    ChildSpecs = [],
+    {ok, {SupFlags, ChildSpecs}}.
 
 %%%===================================================================
 %%% Internal functions

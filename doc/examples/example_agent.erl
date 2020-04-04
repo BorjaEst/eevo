@@ -30,9 +30,9 @@
 -define(AGENT, ?MODULE).
 
 -record(state, {
-	id :: agent_id(),
-	governor :: pid(),
-	properties :: #{}}).
+    id :: agent_id(),
+    governor :: pid(),
+    properties :: #{}}).
 
 %%%===================================================================
 %%% Defined agents
@@ -47,9 +47,9 @@
 %% @end
 %%--------------------------------------------------------------------
 test_agent() ->
-	_AgentProperties = #{
-		% Extension of properties should be placed here
-		score_base => rand:uniform(100)}.
+    _AgentProperties = #{
+        % Extension of properties should be placed here
+        score_base => rand:uniform(100)}.
 
 %%%===================================================================
 %%% Mutation functions
@@ -62,9 +62,9 @@ test_agent() ->
 %% @end
 %%--------------------------------------------------------------------
 test_mutation(Properties) ->
-	#{score_base := Base} = Properties,
-	_ChildProperties = Properties#{
-		score_base := Base + rand:uniform(10)}.
+    #{score_base := Base} = Properties,
+    _ChildProperties = Properties#{
+        score_base := Base + rand:uniform(10)}.
 
 %%%===================================================================
 %%% agent callbacks as gen_server
@@ -85,16 +85,16 @@ test_mutation(Properties) ->
 %% @end
 %%--------------------------------------------------------------------
 -spec(init(Args :: term()) ->
-	{ok, State :: #state{}} | {ok, State :: #state{}, timeout() | hibernate} |
-	{stop, Reason :: term()} | ignore).
+    {ok, State :: #state{}} | {ok, State :: #state{}, timeout() | hibernate} |
+    {stop, Reason :: term()} | ignore).
 init([Agent_Id, Governor, Properties]) ->
-	process_flag(trap_exit, true), % Mandatory to catch supervisor exits
-	timer:send_after(rand:uniform(10), score),
-	timer:send_after(rand:uniform(10) * 100, terminate),
-	{ok, #state{
-		id         = Agent_Id,
-		governor   = Governor,
-		properties = Properties}}.
+    process_flag(trap_exit, true), % Mandatory to catch supervisor exits
+    timer:send_after(rand:uniform(10), score),
+    timer:send_after(rand:uniform(10) * 100, terminate),
+    {ok, #state{
+        id         = Agent_Id,
+        governor   = Governor,
+        properties = Properties}}.
 
 %%--------------------------------------------------------------------
 %% @private
@@ -110,21 +110,21 @@ init([Agent_Id, Governor, Properties]) ->
 %% @end
 %%--------------------------------------------------------------------
 -spec(handle_info(Info :: timeout() | term(), State :: #state{}) ->
-	{noreply, NewState :: #state{}} |
-	{noreply, NewState :: #state{}, timeout() | hibernate} |
-	{stop, Reason :: term(), NewState :: #state{}}).
+    {noreply, NewState :: #state{}} |
+    {noreply, NewState :: #state{}, timeout() | hibernate} |
+    {stop, Reason :: term(), NewState :: #state{}}).
 
 handle_info(score, State) ->
-	#state{id = Agent_Id, governor = Governor, properties = Properties} = State,
-	#{score_base := ScoreBase} = Properties,
-	eevo:add_score(Governor, Agent_Id, ScoreBase + rand:uniform(25)),
-	{noreply, State};
+    #state{id = Agent_Id, governor = Governor, properties = Properties} = State,
+    #{score_base := ScoreBase} = Properties,
+    eevo:add_score(Governor, Agent_Id, ScoreBase + rand:uniform(25)),
+    {noreply, State};
 
 handle_info(terminate, State) ->
-	{stop, normal, State};
+    {stop, normal, State};
 
 handle_info(_Info, State) ->
-	{noreply, State}.
+    {noreply, State}.
 
 %%--------------------------------------------------------------------
 %% @private
@@ -144,8 +144,8 @@ handle_info(_Info, State) ->
 -spec(terminate(Reason :: (normal | shutdown | {shutdown, term()} | term()),
                 State :: #state{}) -> term()).
 terminate(_Reason, _State) ->
-%%	io:format("Terminate ~p ~n", [Reason]),
-	ok.
+%%    io:format("Terminate ~p ~n", [Reason]),
+    ok.
 
 %%%===================================================================
 %%% Internal functions

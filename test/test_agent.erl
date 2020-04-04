@@ -28,8 +28,8 @@
 -define(AGENT, ?MODULE).
 
 -record(state, {
-	id :: agent_id(),
-	properties :: #{}}).
+    id :: agent_id(),
+    properties :: #{}}).
 
 -ifdef(debug_mode).
 -define(STDCALL_TIMEOUT, infinity).
@@ -42,14 +42,14 @@
 %%%===================================================================
 
 properties_example() ->
-	_AgentProperties = #{
-		% Extension of properties should be placed here
-		score_base => rand:uniform(100)}.
+    _AgentProperties = #{
+        % Extension of properties should be placed here
+        score_base => rand:uniform(100)}.
 
 mutationF_example(Properties) ->
-	#{score_base := Base} = Properties,
-	_ChildProperties = Properties#{
-		score_base := Base + rand:uniform(10)}.
+    #{score_base := Base} = Properties,
+    _ChildProperties = Properties#{
+        score_base := Base + rand:uniform(10)}.
 
 %%%===================================================================
 %%% agent callbacks as gen_server
@@ -70,15 +70,15 @@ mutationF_example(Properties) ->
 %% @end
 %%--------------------------------------------------------------------
 -spec(agent_init(Args :: term()) ->
-	{ok, State :: #state{}} | {ok, State :: #state{}, timeout() | hibernate} |
-	{stop, Reason :: term()} | ignore).
+    {ok, State :: #state{}} | {ok, State :: #state{}, timeout() | hibernate} |
+    {stop, Reason :: term()} | ignore).
 agent_init([Properties]) ->
-	process_flag(trap_exit, true), % Mandatory to catch supervisor exits
-	timer:send_after(rand:uniform(10) + 5, score),
-	{ok, #state{
-		id         = ?agent_id(Properties),
-		properties = Properties#{agent_pid => self()}
-	}}.
+    process_flag(trap_exit, true), % Mandatory to catch supervisor exits
+    timer:send_after(rand:uniform(10) + 5, score),
+    {ok, #state{
+        id         = ?agent_id(Properties),
+        properties = Properties#{agent_pid => self()}
+    }}.
 
 %%--------------------------------------------------------------------
 %% @private
@@ -94,27 +94,27 @@ agent_init([Properties]) ->
 %% @end
 %%--------------------------------------------------------------------
 -spec(handle_info(Info :: timeout() | term(), State :: #state{}) ->
-	{noreply, NewState :: #state{}} |
-	{noreply, NewState :: #state{}, timeout() | hibernate} |
-	{stop, Reason :: term(), NewState :: #state{}}).
+    {noreply, NewState :: #state{}} |
+    {noreply, NewState :: #state{}, timeout() | hibernate} |
+    {stop, Reason :: term(), NewState :: #state{}}).
 
 handle_info(score, State) ->
-	?LOG_INFO("handle_info --> score Agent_Id ~p", [State#state.id]),
-	?add_score(State#state.properties, maps:get(score_base, State#state.properties) + rand:uniform(25)),
-	?end_agent(State#state.properties),
-	{noreply, State};
+    ?LOG_INFO("handle_info --> score Agent_Id ~p", [State#state.id]),
+    ?add_score(State#state.properties, maps:get(score_base, State#state.properties) + rand:uniform(25)),
+    ?end_agent(State#state.properties),
+    {noreply, State};
 
 handle_info({'EXIT', _PId, Reason}, State) ->
-	?LOG_INFO("handle_info --> Agent_Id ~p 'EXIT', Reason ~p", [State#state.id, Reason]),
-	case Reason of
-		end_agent -> {stop, normal, State};
-		time_end -> {stop, normal, State};
-		_Other -> ?LOG_ERROR({"'EXIT' message with Reason: ", Reason}), {stop, Reason, State}
-	end;
+    ?LOG_INFO("handle_info --> Agent_Id ~p 'EXIT', Reason ~p", [State#state.id, Reason]),
+    case Reason of
+        end_agent -> {stop, normal, State};
+        time_end -> {stop, normal, State};
+        _Other -> ?LOG_ERROR({"'EXIT' message with Reason: ", Reason}), {stop, Reason, State}
+    end;
 
 handle_info(Info, State) ->
-	?LOG_WARNING("handle_info --> Agent_Id ~p received and unknown Info message ~p", [State#state.id, Info]),
-	{noreply, State}.
+    ?LOG_WARNING("handle_info --> Agent_Id ~p received and unknown Info message ~p", [State#state.id, Info]),
+    {noreply, State}.
 
 %%--------------------------------------------------------------------
 %% @private
@@ -134,8 +134,8 @@ handle_info(Info, State) ->
 -spec(terminate(Reason :: (normal | shutdown | {shutdown, term()} | term()),
                 State :: #state{}) -> term()).
 terminate(_Reason, _State) ->
-%%	io:format("Terminate ~p ~n", [Reason]),
-	ok.
+%%    io:format("Terminate ~p ~n", [Reason]),
+    ok.
 
 %%%===================================================================
 %%% Internal functions
@@ -147,11 +147,11 @@ terminate(_Reason, _State) ->
 %%%===================================================================
 % This is done like this to save time on implementing a specific behaviour "Agent"
 start_link(Agent_Id, Population_Id, Properties) ->
-	Updt_Properties = Properties#{
-		population_id  => Population_Id,
-		agent_id       => Agent_Id
-	},
-	gen_server:start_link(?MODULE, [Updt_Properties], []).
+    Updt_Properties = Properties#{
+        population_id  => Population_Id,
+        agent_id       => Agent_Id
+    },
+    gen_server:start_link(?MODULE, [Updt_Properties], []).
 
 init([Properties]) -> agent_init([Properties#{agent_pid => self()}]).
 handle_call(_Request, _From, State) -> {reply, ok, State}.
