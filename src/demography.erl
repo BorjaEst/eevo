@@ -24,11 +24,11 @@
 
 -record(ruler, {
     id = ?NEW_RULER_ID :: ruler:id(),
-    size       = 5     :: integer(), % Aagents per population
-    run_time   = infinity :: integer(), % Time(ms) before end
-    run_agents = infinity :: integer(), % Tested agents before end
-    run_score  = infinity :: float(),   % Score target before end
-    selection :: function() % Selection function for pool agents
+    size       = 5     :: integer(),      % Aagents per population
+    run_time   = infinity :: integer(),   % Time(ms) before end
+    run_agents = infinity :: integer(),   % Tested agents before end
+    run_score  = infinity :: float(),     % Score target before end
+    selection  = top3 :: selection:func() % Selection for agents pool
 }).
 -type ruler() :: #ruler{}.
 
@@ -37,7 +37,6 @@
     father :: agent:id() % Id of the agent one generation back
 }). 
 -type agent() :: #agent{}.
-
 
 
 %%%===================================================================
