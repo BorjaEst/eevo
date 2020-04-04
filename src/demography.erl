@@ -22,8 +22,6 @@
 -define(NEW_AGENT_ID,       {make_ref(), agent}).
 -define(REFERENCE(Id), element(2,element(1,Id))).
 
-
-
 -record(ruler, {
     id = ?NEW_RULER_ID :: ruler:id(),
     maximum    = 5     :: integer(), % Max agents per population
@@ -37,31 +35,14 @@
 -type ruler() :: #ruler{}.
 
 -record(agent, {
-    id :: agent:id()(),
+    id :: agent:id(),
     module :: module(),
     properties :: #{},
     mutation_f :: function(),
     behaviour = gen_server :: module(),
-    father = none :: agent_id() % Id of the agent one generation back
+    father = none :: agent:id() % Id of the agent one generation back
 }). 
 -type agent() :: #agent{}.
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 
@@ -70,26 +51,92 @@
 %%%===================================================================
 
 %%--------------------------------------------------------------------
-%% @doc
-%% Creates a new population on nndb and returns its Id
-%%
+%% @doc Returns the record fields of an element.
 %% @end
 %%--------------------------------------------------------------------
-new_population(Options) ->
-    Population = population(Options),
-    nndb:write(Population),
-    Population#population.id.
+-spec fields(Atom :: ruler | agent) -> ListOfFields :: [atom()].
+fields(ruler) -> record_info(fields, ruler);
+fields(agent) -> record_info(fields, agent).
 
 %%--------------------------------------------------------------------
 %% @doc
 %% Creates a new agent on nndb and returns its Id
-%%
 %% @end
 %%--------------------------------------------------------------------
-new_agent(Module, AgentProperties, MutationF, Options) ->
-    Agent = agent(Module, AgentProperties, MutationF, Options),
-    nndb:write(Agent),
-    Agent#agent.id.
+% TODO: specs
+agent(Properties) ->
+    Agent = #agent{id = ?NEW_AGENT_ID},
+    edit(Agent, Properties).
+
+%%--------------------------------------------------------------------
+%% @doc Evaluates if the input is an agent.
+%% @end
+%%--------------------------------------------------------------------
+-spec is_agent(Term :: term()) -> boolean().
+is_agent(Agent) -> is_record(Agent, agent).
+
+%%--------------------------------------------------------------------
+%% @doc
+%% Creates a new ruler on nndb and returns its Id
+%% @end
+%%--------------------------------------------------------------------
+% TODO: specs
+ruler(Properties) ->
+    Ruler = #ruler{id = ?NEW_RULER_ID},
+    edit(Ruler, Properties).
+
+%%--------------------------------------------------------------------
+%% @doc Evaluates if the input is a ruler.
+%% @end
+%%--------------------------------------------------------------------
+-spec is_ruler(Term :: term()) -> boolean().
+is_ruler(Ruler) -> is_record(Ruler, ruler).
+
+%%--------------------------------------------------------------------
+%% @doc Edits an element using some properties.
+%% @end
+%%--------------------------------------------------------------------
+-spec edit(Element, Properties) -> EditedElement when
+    Element       :: agent() | ruler(),
+    Properties    :: agent:properties() | ruler:properties(),
+    EditedElement :: agent() | ruler().
+edit(Agent, Properties) when is_record(Agent, agent) ->
+    edit_agent(Agent, maps:to_list(Properties));
+edit(Ruler, Properties) when is_record(Ruler, ruler) ->
+    edit_ruler(Ruler, maps:to_list(Properties)).
+
+edit_agent(Agent, [{id,              Value} | Options]) ->
+   edit_agent(Agent#agent{id = Value}, Options);
+%%% TODO: To define
+edit_agent(Agent, []) -> 
+    Agent.
+
+edit_ruler(Ruler, [{id,          Value} | Options]) -> 
+    edit_ruler(Ruler#ruler{id = Value}, Options);
+%%% TODO: To define
+edit_ruler(Ruler, []) ->
+    Ruler.
+
+%%--------------------------------------------------------------------
+%% @doc Returns the element id.
+%% @end
+%%--------------------------------------------------------------------
+-spec id(Element :: agent() | ruler()) -> id().
+id(Element) when is_record(Element, agent) -> Element#agent.id;
+id(Element) when is_record(Element, ruler) -> Element#ruler.id.
+
+%%--------------------------------------------------------------------
+%% @doc Returns the genealogical tree of an agent
+%% @end
+%%--------------------------------------------------------------------
+-spec tree(Agent :: agent() | agent:id()) -> 
+    Tree :: [Agent :: agent:id()].
+tree(Agent) when is_record(Agent, agent) -> 
+    [id(Agent) | tree(Agent#agent.father)];
+tree({_, agent} = Agent_Id) ->
+    tree(ndb:read(Agent_Id));
+tree(_Other) -> [].
+
 
 %%--------------------------------------------------------------------
 %% @doc
@@ -97,29 +144,10 @@ new_agent(Module, AgentProperties, MutationF, Options) ->
 %%
 %% @end
 %%--------------------------------------------------------------------
-tree(none) ->
-    [];
-tree(Agent_Id) ->
-    Agent = #agent{} = nndb:read(Agent_Id),
-    [Agent_Id | tree(Agent#agent.father)].
-
-%%--------------------------------------------------------------------
-%% @doc
-%% TODO: Make description
-%%
-%% @end
-%%--------------------------------------------------------------------
-element_id(Element) when is_record(Element, agent)      -> Element#agent.id;
-element_id(Element) when is_record(Element, population) -> Element#population.id.
-
-%%--------------------------------------------------------------------
-%% @doc
-%% TODO: Make description
-%%
-%% @end
-%%--------------------------------------------------------------------
-pformat(Element) when is_record(Element, agent)      -> pformat(Element, record_info(fields, agent));
-pformat(Element) when is_record(Element, population) -> pformat(Element, record_info(fields, population)).
+pformat(Element) when is_record(Element, agent) -> 
+    pformat(Element, record_info(fields, agent));
+pformat(Element) when is_record(Element, ruler) -> 
+    pformat(Element, record_info(fields, ruler)).
 
 pformat(Element, Fields) ->
     [io_lib:format("Element record: ~w ~n", [element(1, Element)]) |
@@ -135,50 +163,6 @@ pformat(_Element, [], _Index) ->
 %% Internal functions
 %%====================================================================
 
-%--------------------------------------------------------------------...................................................
-population(Options) ->
-    Population = #population{
-        id = ?POPULATION_ID(nnref:new())
-    },
-    write_population_options(Population, Options).
-
-write_population_options(Population, [{name, Value} | Options]) ->
-    write_population_options(Population#population{id = ?POPULATION_ID(Value)}, Options);
-write_population_options(Population, [{limit, Value} | Options]) ->
-    write_population_options(Population#population{limit = Value}, Options);
-write_population_options(Population, [{minimum, Value} | Options]) ->
-    write_population_options(Population#population{minimum = Value}, Options);
-write_population_options(Population, [{run_time, Value} | Options]) ->
-    write_population_options(Population#population{run_time = Value}, Options);
-write_population_options(Population, [{run_agents, Value} | Options]) ->
-    write_population_options(Population#population{run_agents = Value}, Options);
-write_population_options(Population, [{run_score, Value} | Options]) ->
-    write_population_options(Population#population{run_score = Value}, Options);
-write_population_options(Population, [{evo_alg_f, Value} | Options]) ->
-    write_population_options(Population#population{evo_alg_f = Value}, Options);
-write_population_options(Population, [{sel_alg_f, Value} | Options]) ->
-    write_population_options(Population#population{sel_alg_f = Value}, Options);
-write_population_options(Population, []) ->
-    Population.
-
-% --------------------------------------------------------------------..................................................
-agent(Module, AgentProperties, MutationF, Options) ->
-    Agent = #agent{
-        id         = ?AGENT_ID(nnref:new()),
-        module     = Module,
-        properties = AgentProperties,
-        mutation_f = MutationF
-    },
-    write_agent_options(Agent, Options).
-
-write_agent_options(Agent, [{name, Value} | Options]) ->
-    write_agent_options(Agent#agent{id = ?AGENT_ID(Value)}, Options);
-write_agent_options(Agent, [{behaviour, Value} | Options]) ->
-    write_agent_options(Agent#agent{behaviour = Value}, Options);
-write_agent_options(Agent, [{father, Value} | Options]) ->
-    write_agent_options(Agent#agent{father = Value}, Options);
-write_agent_options(Agent, []) ->
-    Agent.
 
 %%====================================================================
 %% Eunit white box tests
