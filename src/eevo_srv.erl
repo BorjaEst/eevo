@@ -107,7 +107,7 @@ pop_sup(Population_Id) ->
 %%--------------------------------------------------------------------
 -spec init(Args :: term()) ->
     {ok, State :: #state{}} | {ok, State :: #state{}, timeout() | hibernate} |
-    {stop, Reason :: term()} | ignore).
+    {stop, Reason :: term()} | ignore.
 init(StartArgs) ->
     do_init(StartArgs, #state{}).
 
@@ -132,7 +132,7 @@ do_init([], State) ->
                      {noreply, NewState :: #state{}} |
                      {noreply, NewState :: #state{}, timeout() | hibernate} |
                      {stop, Reason :: term(), Reply :: term(), NewState :: #state{}} |
-                     {stop, Reason :: term(), NewState :: #state{}}).
+                     {stop, Reason :: term(), NewState :: #state{}}.
 
 handle_call({run, Pop_Id}, From, #state{limit = L, populations = Populations} = State) when L > length(Populations) ->
     handle_start_population(Pop_Id, State, From);
@@ -162,7 +162,7 @@ handle_call(Request, From, State) ->
 -spec handle_cast(Request :: term(), State :: #state{}) ->
     {noreply, NewState :: #state{}} |
     {noreply, NewState :: #state{}, timeout() | hibernate} |
-    {stop, Reason :: term(), NewState :: #state{}}).
+    {stop, Reason :: term(), NewState :: #state{}}.
 handle_cast(Request, State) ->
     ?LOG_WARNING("Unknown handle_cast eevo_srv, request ~p", [Request]),
     {noreply, State}.
@@ -180,7 +180,7 @@ handle_cast(Request, State) ->
 -spec handle_info(Info :: timeout() | term(), State :: #state{}) ->
     {noreply, NewState :: #state{}} |
     {noreply, NewState :: #state{}, timeout() | hibernate} |
-    {stop, Reason :: term(), NewState :: #state{}}).
+    {stop, Reason :: term(), NewState :: #state{}}.
 
 handle_info({'DOWN', Ref, process, PId, Info}, State) ->
 %%    ?LOG({"RIP Population: ", PId, Info}),
@@ -205,7 +205,7 @@ handle_info(Info, State) ->
 %% @end
 %%--------------------------------------------------------------------
 -spec terminate(Reason :: (normal | shutdown | {shutdown, term()} | term()),
-                State :: #state{}) -> term()).
+                State :: #state{}) -> term().
 terminate(Reason, _State) ->
     ?LOG_INFO("terminate eevo_srv, reason ~p", [Reason]),
     ok.
@@ -220,7 +220,7 @@ terminate(Reason, _State) ->
 %%--------------------------------------------------------------------
 -spec code_change(OldVsn :: term() | {down, term()}, State :: #state{},
                   Extra :: term()) ->
-                     {ok, NewState :: #state{}} | {error, Reason :: term()}).
+                     {ok, NewState :: #state{}} | {error, Reason :: term()}.
 code_change(_OldVsn, State, _Extra) ->
     {ok, State}.
 

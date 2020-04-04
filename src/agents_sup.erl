@@ -94,7 +94,7 @@ stop_agent(Supervisor, Agent_Id) ->
                        MaxR :: non_neg_integer(), MaxT :: non_neg_integer()},
           [ChildSpec :: supervisor:child_spec()]}} |
     ignore |
-    {error, Reason :: term()}).
+    {error, Reason :: term()}.
 init([]) ->
     SupFlags = #{strategy => one_for_one,
                  intensity => 10,
