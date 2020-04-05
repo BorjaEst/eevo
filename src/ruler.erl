@@ -18,7 +18,8 @@
 -export_types([id/0]).
 
 %% gen_server callbacks
--export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2, code_change/3]).
+-export([init/1, handle_call/3, handle_cast/2, handle_info/2, 
+         terminate/2, code_change/3]).
 
 -type id() :: {Ref :: reference(), ruler}.
 -type property()   :: todefine().
@@ -26,26 +27,36 @@
     OptionalProperty :: property() => Value :: term()
 }.
 
-
+-define(POOL_UPDATE_INTERVAL, 100).
+-define(CLEAN_DEAD_INTERVAL,   90).
 -define(ETS_TABLE_OPTIONS, [ordered_set]).
--define(INIT_AGENT_SCORE, 0.0).
+-define(INIT_SCORE, 0.0).
 -record(state, {
-    id :: population_id(),
-    limit :: integer(),
-    minimum :: integer(),
-    start_time = erlang:monotonic_time(millisecond) :: integer(),
-    agents_counter = 0 :: integer(),
-    spawn_limit :: integer() | infinity,
-    score_limit :: float(),
-    evo_alg_f :: function(), % Specifies the evolutionary loop function,
-    sel_alg_f :: function(),
-    owner :: pid(),
-    agents_sup :: pid(),
-    score_pool = ets:new(score_pool, ?ETS_TABLE_OPTIONS) :: reference(), % Ordered by SCORE
-    agents = orddict:new() :: [{Agent_Id :: agent_id(), Score :: float()}],
-    refs = gb_trees:empty() :: {Ref :: reference(), Agent_Id :: agent_id()},
-    queue = queue:new(),
-    report_path :: string()}).
+    size       :: {Current :: integer(), Max :: integer()},
+    run_time   :: {Current :: integer(), End :: integer()},
+    generation :: {Current :: integer(), End :: integer()}, 
+    best_score :: {Current ::   float(), End ::   float()},   
+    selection  :: selection:func(),
+    agents     :: #{Agent_Id  :: agent:id()  => Info :: info()},
+    refs       :: #{Reference :: reference() => agent:id()},
+    queue      :: queue:queua()
+ }).
+ -type info() :: {Score :: float(), Pid :: pid()}.
+
+-define(LOG_HANDLE_CAST_MESSAGE(Message, State),
+    ?LOG_DEBUG(#{what => "Received cast request", pid => self(),
+                 details => #{message => Message,
+                              agents  => State#state.agents,
+                              queue   => State#state.queue}},
+               #{logger_formatter=>#{title=>"RULER REQUEST"}})
+).
+-define(LOG_UNKNOWN_AGENT(Agent_Id, Agents),
+    ?LOG_DEBUG(#{what => "Request for unknow agent", pid => self(),
+                 details => #{agent_id => Agent_Id,
+                              agents   => Agents}},
+               #{logger_formatter=>#{title=>"RULER REQUEST"}})
+).
+
 
 -ifdef(debug_mode).
 -define(STDCALL_TIMEOUT, infinity).
@@ -58,77 +69,50 @@
 %%%===================================================================
 
 %%--------------------------------------------------------------------
-%% @doc
-%% % TODO: To make description
-%%
+%% @doc Starts the population ruler.
 %% @end
 %%--------------------------------------------------------------------
-start_link(Arguments) ->
-    gen_server:start_link(?MODULE, [{supervisor, self()} | Arguments], []).
+-spec start_link(Ruler_Id :: id()) -> gen_server:start_ret().
+start_link(Ruler_Id) ->
+    gen_server:start_link(?MODULE, [Ruler_Id, self()], []).
 
 %%--------------------------------------------------------------------
-%% @doc
-%% % TODO: To make description
-%%
+%% @doc Request the agent addition to the population. Asynchronous.
 %% @end
 %%--------------------------------------------------------------------
-sync_queue(Ruler, Agent_Id) ->
-    gen_server:call(Ruler, {sync, Agent_Id}, ?STDCALL_TIMEOUT).
-
-%%--------------------------------------------------------------------
-%% @doc
-%% % TODO: To make description
-%%
-%% @end
-%%--------------------------------------------------------------------
+-spec async_queue(Ruler :: pid(), Agent_Id :: agent:id()) ->
+    ok.
 async_queue(Ruler, Agent_Id) ->
-    gen_server:cast(Ruler, {async, Agent_Id}).
+    gen_server:cast(Ruler, {queue, Agent_Id}).
 
 %%--------------------------------------------------------------------
-%% @doc
-%% % TODO: To make description
-%%
+%% @doc Request the kill of an agent. Asynchronous.
 %% @end
 %%--------------------------------------------------------------------
-stop(Ruler, Agent_Id) ->
-    gen_server:call(Ruler, {stop, Agent_Id}, ?STDCALL_TIMEOUT).
-
+-spec async_kill(Ruler :: pid(), Agent_Id :: agent:id()) ->
+    ok.
+async_kill(Ruler, Agent_Id) ->
+    gen_server:cast(Ruler, {kill, Agent_Id}).
 
 %%--------------------------------------------------------------------
-%% @doc
-%% % TODO: To make description
-%%
+%% @doc Adds a score to an agent. Asynchronous.
 %% @end
 %%--------------------------------------------------------------------
-add_score(Ruler, Agent_Id, Score, Score_Info) ->
-    gen_server:cast(Ruler, {add_score, Agent_Id, Score, Score_Info}).
+-spec score(Ruler, Agent_Id, Score) -> ok when 
+    Ruler    :: pid(), 
+    Agent_Id :: agent:id(), 
+    Score    :: float().
+score(Ruler, Agent_Id, Score) ->
+    gen_server:cast(Ruler, {score, Agent_Id, Score}).
 
 %%--------------------------------------------------------------------
-%% @doc
-%% % TODO: To make description
-%%
+%% @doc Returns the score pool ets table id.
 %% @end
 %%--------------------------------------------------------------------
-set_score(Ruler, Agent_Id, Score, Score_Info) ->
-    gen_server:cast(Ruler, {set_score, Agent_Id, Score, Score_Info}).
+-spec score_pool(Ruler_Id :: id()) -> ets:tid().
+score_pool(Ruler_Id) ->
+    ets:lookup_element(?EV_POOL, Ruler_Id, #population.score_pool).
 
-%%--------------------------------------------------------------------
-%% @doc
-%% % TODO: To make description
-%%
-%% @end
-%%--------------------------------------------------------------------
-score_pool(Ruler) ->
-    gen_server:call(Ruler, get_score_pool, ?STDCALL_TIMEOUT).
-
-%%--------------------------------------------------------------------
-%% @doc
-%% % TODO: To make description
-%%
-%% @end
-%%--------------------------------------------------------------------
-trigger_evolution(Ruler) ->
-    gen_server:cast(Ruler, trigger_evolution).
 
 %%%===================================================================
 %%% gen_server callbacks
@@ -148,38 +132,38 @@ trigger_evolution(Ruler) ->
 -spec init(Args :: term()) ->
     {ok, State :: #state{}} | {ok, State :: #state{}, timeout() | hibernate} |
     {stop, Reason :: term()} | ignore.
-init(Arguments) ->
-    do_init(Arguments, #state{}).
-
-do_init([{owner, Value} | Arguments], State) ->
-    do_init(Arguments, State#state{owner = Value});
-do_init([{report_path, Value} | Arguments], State) ->
-    do_init(Arguments, State#state{report_path = Value});
-do_init([{supervisor, PopSup} | Arguments], State) ->
-    self() ! {start_agents_supervisor, PopSup},
-    do_init(Arguments, State);
-do_init([{id, Value} | Arguments], State) ->
-    Population = edb:read(Value),
-    timer:send_after(Population#population.run_time, run_end),
-    do_init(Arguments, State#state{
-        id          = Population#population.id,
-        limit       = Population#population.limit,
-        minimum     = Population#population.minimum,
-        spawn_limit = Population#population.run_agents,
-        score_limit = Population#population.run_score,
-        evo_alg_f   = Population#population.evo_alg_f,
-        sel_alg_f   = Population#population.sel_alg_f
-    });
-do_init([], State) ->
-    report:new(State#state.report_path, ?ID_FILEMODE(State#state.id)),
+init([Id, Supervisor]) ->
+    Ruler      = edb:read(Id),    
+    Score_Pool = ets:new(undef, ?ETS_TABLE_OPTIONS),
+    put(   id,          Id), % Used when updating the eevo_pool
+    put(   sup, Supervisor), % Used when spawn agents under the OTP
+    put(agents,         []), % Used when cleaning dead from agents#{}
+    put( spool, Score_Pool), % Used when scoring agents
+    true = ets:update_element(?EV_POOL, Id, [
+        {     #population.ruler,     self()},
+        {#population.score_pool, Score_Pool}
+    ]),
     process_flag(trap_exit, true),
-    ?LOG_INFO("Population_Id:~p initiated", [State#state.id]),
-    {ok, State}.
+    ?LOG_INFO("Population_Id:~p initiated", [Id]),
+    self() ! update_pool, % Request to update pool after start
+    timer:send_interval(?POOL_UPDATE_INTERVAL, update_pool),
+    timer:send_interval(?CLEAN_DEAD_INTERVAL,   clean_dead),
+    timer:send_after(demography:stop_time(Ruler), run_end),
+    {ok, #state{
+        size       = {  0,    demography:max_size(Ruler)},
+        run_time   = {  0,   demography:stop_time(Ruler)},
+        generation = {  0, demography:generations(Ruler)}, 
+        best_score = {0.0,      demography:target(Ruler)},   
+        selection  = demography:selection(Ruler),
+        agents     = #{},
+        refs       = #{},
+        queue      = queue:new()
+    }}.
+
 
 %%--------------------------------------------------------------------
 %% @private
-%% @doc
-%% Handling call messages
+%% @doc Handling call messages
 %%
 %% @end
 %%--------------------------------------------------------------------
@@ -191,40 +175,14 @@ do_init([], State) ->
                      {noreply, NewState :: #state{}, timeout() | hibernate} |
                      {stop, Reason :: term(), Reply :: term(), NewState :: #state{}} |
                      {stop, Reason :: term(), NewState :: #state{}}.
-
-handle_call({sync, Agent_Id}, _From, #state{limit = L, agents = Agents} = State) when L > length(Agents) ->
-    ?LOG_INFO("handle_call Population_Id:~p --> agent ~p start", [State#state.id, Agent_Id]),
-    {Ref, PId} = handle_run(Agent_Id, State#state.id, State#state.agents_sup),
-    {reply, {ok, PId}, State#state{
-        agents = orddict:store(Agent_Id, ?INIT_AGENT_SCORE, Agents),
-        refs   = gb_trees:insert(Ref, Agent_Id, State#state.refs)}
-    };
-handle_call({sync, Agent_Id}, From, State) ->
-    ?LOG_INFO("handle_call Population_Id:~p --> agent ~p queue", [State#state.id, Agent_Id]),
-    ?LOG_DEBUG("Agent ~p in queue: ~p", [Agent_Id, State#state.queue]),
-    {noreply, State#state{
-        queue = queue:in({reply, From, Agent_Id}, State#state.queue)}
-    };
-
-handle_call({stop, Agent_Id}, _From, State) ->
-    ?LOG_INFO("handle_call Population_Id:~p --> agent ~p stop", [State#state.id, Agent_Id]),
-    #state{agents_sup = Agents_Sup} = State,
-    agents_sup:stop_agent(Agents_Sup, Agent_Id),
-    {reply, ok, State};
-
-handle_call(get_score_pool, _From, State) ->
-    ?LOG_INFO("handle_call Population_Id:~p --> get score pool", [State#state.id]),
-    #state{score_pool = ScorePool} = State,
-    {reply, ScorePool, State};
-
 handle_call(Request, _From, State) ->
-    ?LOG_WARNING("Unknown handle_call Population_Id ~p, request ~p", [State#state.id, Request]),
-    {reply, {error, {badrequest, Request}}, State}.
+    ?LOG_WARNING("Unknown handle_call Population_Id ~p, request ~p", 
+                 [get(id), Request]),
+    {reply, {error, badrequest}, State}.
 
 %%--------------------------------------------------------------------
 %% @private
-%% @doc
-%% Handling cast messages
+%% @doc Handling cast messages
 %%
 %% @end
 %%--------------------------------------------------------------------
@@ -232,43 +190,54 @@ handle_call(Request, _From, State) ->
     {noreply, NewState :: #state{}} |
     {noreply, NewState :: #state{}, timeout() | hibernate} |
     {stop, Reason :: term(), NewState :: #state{}}.
-
-handle_cast({async, Agent_Id}, #state{limit = L, agents = Agents} = State) when L > length(Agents) ->
-    ?LOG_INFO("handle_cast Population_Id:~p --> agent ~p start", [State#state.id, Agent_Id]),
-    {Ref, _PId} = handle_run(Agent_Id, State#state.id, State#state.agents_sup),
+handle_cast({queue, Agent_Id} = Message, State) ->
+    ?LOG_HANDLE_CAST_MESSAGE(Message, State),
     {noreply, State#state{
-        agents = orddict:store(Agent_Id, ?INIT_AGENT_SCORE, Agents),
-        refs   = gb_trees:insert(Ref, Agent_Id, State#state.refs)}
-    };
-handle_cast({async, Agent_Id}, State) ->
-    ?LOG_INFO("handle_cast Population_Id:~p --> agent ~p queue", [State#state.id, Agent_Id]),
-    ?LOG_DEBUG("Agent ~p in queue: ~p", [Agent_Id, State#state.queue]),
+        queue = queue:in(Agent_Id, State#state.queue)
+    }};
+handle_cast({kill, Agent_Id} = Message, State) ->
+    ?LOG_HANDLE_CAST_MESSAGE(Message, State),
+    case maps:get(Agent_Id, State#state.agents, error) of
+        {_,dead} -> already_dead;
+        {_, Pid} -> exit(Pid,shutdown);
+        error    -> ?LOG_UNKNOWN_AGENT(Agent_Id, State#state.agents)
+    end,
+    {noreply, State};
+handle_cast({score, Agent_Id, Score} = Message, State) ->
+    ?LOG_HANDLE_CAST_MESSAGE(Message, State),
+    Agents     = State#state.agents,
+    UpdtAgents = case maps:get(Agent_Id, Agents, error) of
+        error -> ?LOG_UNKNOWN_AGENT(Agent_Id, Agents), Agents;
+        Value -> score_agent(Agent_Id, Value, Score, Agents)
+    end,
     {noreply, State#state{
-        queue = queue:in({noreply, Agent_Id}, State#state.queue)}
-    };
+        agents = UpdtAgents
+    }};
 
-handle_cast(trigger_evolution, State) ->
-    ?LOG_INFO("handle_cast Population_Id:~p --> trigger evolution", [State#state.id]),
-    {noreply, handle_evolution(State)};
-
-handle_cast({add_score, Agent_Id, Score, Score_Info}, State) ->
-    ?LOG_INFO("handle_cast Population_Id:~p --> agent ~p add score ~p", [State#state.id, Agent_Id, Score]),
-    ?LOG_DEBUG("Agent_Id ~p Score_Info ~p", [Agent_Id, Score_Info]),
-    case orddict:find(Agent_Id, State#state.agents) of
-        {ok, OldScore} -> {noreply, handle_set_score(Agent_Id, Score + OldScore, OldScore, Score_Info, State)};
-        error -> error({"Score message for an unknown agent", {score, Agent_Id, Score}})
-    end;
-handle_cast({set_score, Agent_Id, Score, Score_Info}, State) ->
-    ?LOG_INFO("handle_cast Population_Id:~p --> agent ~p set score ~p", [State#state.id, Agent_Id, Score]),
-    ?LOG_DEBUG("Agent_Id ~p Score_Info ~p", [Agent_Id, Score_Info]),
-    case orddict:find(Agent_Id, State#state.agents) of
-        {ok, OldScore} -> {noreply, handle_set_score(Agent_Id, Score, OldScore, Score_Info, State)};
-        error -> error({"Score message for an unknown agent", {score, Agent_Id, Score}})
-    end;
+    
 
 handle_cast(Request, State) ->
-    ?LOG_WARNING("Unknown handle_cast Population_Id ~p, request ~p", [State#state.id, Request]),
+    ?LOG_WARNING(#{what=>"Unknown handle_cast request", pid=>self(),
+                   details => #{request => Request}}),
     {noreply, State}.
+
+
+
+find_agent(Id, #state{agents:=#{Id:=Info}} = State) -> 
+    Info;
+find_agent(Id, State) -> ?LOG_REQUEST_FOR_UNKNOWN_AGENT(Id, State).
+
+
+add_score_agent(Id, Score, #state{agents:=#{Id:=Info}} = State) ->
+    {ActualScore, Pid} = Info,
+    NewScore = ActualScore + Score,
+    handle_score(Id, NewScore, State),
+    maps:update(Id, {NewScore, Pid}, State#state.agents);
+add_score_agent(Id, _, State) -> 
+    ?LOG_UNKNOWN_AGENT(Id, State),
+    State#state.agents.
+
+
 
 %%--------------------------------------------------------------------
 %% @private
@@ -293,6 +262,8 @@ handle_info({'DOWN', DownRef, process, _DownPId, _Info}, State) ->
     catch report_agent(DownAgent_Id, Score, State#state.score_pool), % Save agent data into a file
     {Out, UpdatedQueue} = queue:out(State#state.queue),
     {noreply, handle_queue(Out, State#state{
+
+
         agents_counter = State#state.agents_counter + 1,
         agents         = orddict:erase(DownAgent_Id, State#state.agents),
         queue          = UpdatedQueue,
@@ -349,7 +320,103 @@ code_change(_OldVsn, State, _Extra) ->
 %%% Internal functions
 %%%===================================================================
 
-% --------------------------------------------------------------------..................................................
+
+% --------------------------------------------------------------------
+start_agent(Agent_Id, State) -> 
+    {ok, Pid} = agents_sup:start_agent(get(sup), get(id), Agent_Id),
+    Ref       = erlang:monitor(process, Pid),
+    {      Size,      Max_Size} = State#state.size,
+    {Generation, MaxGeneration} = State#state.generation,
+    Agents                      = State#state.agents,
+    References                  = State#state.refs,
+    State#state{
+        size       = {      Size+1,      Max_Size},
+        generation = {Generation+1, MaxGeneration},
+        agents = Agents#{Agent_Id => {?INIT_SCORE, Pid}},
+        refs   = References#{Ref => Agent_Id}
+    }.
+
+% --------------------------------------------------------------------
+score_agent(Agent_Id, {OldScore, Pid}, Score, Agents) -> 
+    NewScore = OldScore + Score,
+    Score_Pool = get(spool),
+    true = ets:delete(Score_Pool, {OldScore, Agent_Id}),
+    true = ets:insert(Score_Pool, {NewScore, Agent_Id}),
+    maps:update(Agent_Id, {NewScore, Pid}, Agents).
+    
+
+
+
+
+
+
+
+% --------------------------------------------------------------------
+update_agent(Id, Score, Agents) ->
+    {
+    handle_score(Id, NewScore, State),
+    maps:update(Id, {NewScore, Pid}, State#state.agents);
+add_score_agent(Id, _, State) -> 
+    ?LOG_UNKNOWN_AGENT(Id, State),
+    State#state.agents.
+
+
+
+% --------------------------------------------------------------------
+handle_score(Agent_Id, Score+OldScore, State) -> 
+
+
+
+
+handle_set_score(A_Id, NewScore, OldScore, S_Info, #state{score_limit = Limit} = State) when NewScore >= Limit ->
+    self() ! run_end,
+    handle_set_score(A_Id, NewScore, OldScore, S_Info, State#state{score_limit = alert_raised});
+handle_set_score(Agent_Id, NewScore, OldScore, Score_Info, State) ->
+    #state{agents = Agents, score_pool = ScorePool} = State,
+    ets:delete(ScorePool, {OldScore, Agent_Id}),
+    ets:insert(ScorePool, {{NewScore, Agent_Id}, Score_Info}),
+    State#state{agents = orddict:store(Agent_Id, NewScore, Agents)}.
+
+
+
+% --------------------------------------------------------------------
+update_population(State) -> 
+    true = ets:update_element(?EV_POOL, get(id), [
+        {      size,       State#state.size},
+        {  run_time,   State#state.run_time},
+        {generation, State#state.generation},
+        {best_score, State#state.best_score}
+    ]).
+
+% --------------------------------------------------------------------
+clean_dead(State) -> 
+    To_Clean = put(agents, maps:keys(State#state.agents)),
+    clean_dead(To_Clean, State).
+
+clean_dead([Id | Rest], State) -> 
+    Agents   = State#state.agents,
+    NewState = case maps:get(Id, Agents) of
+        {_,dead} -> State;
+        {_,   _} -> State#state{agents=maps:remove(Id, Agents)}
+    end,
+    clean_dead(Rest, NewState);
+clean_dead([], State) -> State.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+% --------------------------------------------------------------------
 population_result(State) ->
     _Result = #{
         best_score   => ets:last(State#state.score_pool),
