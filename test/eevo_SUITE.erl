@@ -11,11 +11,17 @@
 -include_lib("common_test/include/ct.hrl").
 -include_lib("society.hrl").
 
--define(INFO(Info), ct:log(default, ?LOW_IMPORTANCE, "Info report: ~p", [Info])).
--define(ERROR(Error), ct:pal(default, ?HI_IMPORTANCE, "Error report: ~p", [Error])).
+-define(HEAD, [$- || _ <-lists:seq(1,80)] ++ "\n").
+-define(HEAD(Text),  ct:log(?LOW_IMPORTANCE, ?HEAD ++ "~p", [Text])).
+-define(END,  [$_ || _ <-lists:seq(1,80)]).
+-define(END(Value), ct:log(?LOW_IMPORTANCE, "~p~n" ++ ?END, [Value]),
+                    Value).
+
+-define(INFO(Text, Info), ct:log(?LOW_IMPORTANCE, "~p: ~p", [Text, Info])).
+-define(ERROR(Error),     ct:pal(?HI_IMPORTANCE, "Error: ~p", [Error])).
 
 -define(PARALLEL_POPULATIONS, 5).
--define(PARALLEL_AGENTS, 6).
+-define(PARALLEL_AGENTS,      6).
 -define(PERFORMANCE_MEASURE_TIME_MS, 1000).
 
 -define(TEST_POP_TIME_LIMIT, 1000).
@@ -119,9 +125,9 @@ groups() ->
 %%--------------------------------------------------------------------
 all() ->
     [
-        single_population_and_run,  % GROUPS CANNOT BE DEBUGGED
         {group, tests_for_multiple_populations},
-        {group, tests_with_limits}
+        {group, tests_with_limits},
+        single_population_and_run  % GROUPS CANNOT BE DEBUGGED
     ].
 
 %%--------------------------------------------------------------------
@@ -145,7 +151,7 @@ my_test_case_example(_Config) ->
 % --------------------------------------------------------------------
 % TESTS --------------------------------------------------------------
 
-% --------------------------------------------------------------------..................................................
+% --------------------------------------------------------------------
 single_population_and_run() ->
     [].
 single_population_and_run(_Config) ->
@@ -157,11 +163,11 @@ single_population_and_run(_Config) ->
     ok = correct_stop(Population_Id),
     ok.
 
-% --------------------------------------------------------------------..................................................
+% --------------------------------------------------------------------
 test_with_time_limit() ->
     [].
 test_with_time_limit(_Config) ->
-    ?INFO("Correct creation of population with time limit ......................................"),
+    ?HEAD("Correct population creation with time limit ............"),
     Test_Agent_Id = eevo:agent(
         _Module = test_agent, % Module where the gen_agent is implemented
         _AgentProperties = test_agent:properties_example(),
@@ -173,15 +179,13 @@ test_with_time_limit(_Config) ->
     PopRun_Result = receive {run_end, Population_Id, Result} -> Result after 10 -> error(my_timeout) end,
     timer:sleep(40),
     false = is_process_alive(Gov_PId),
-    ?INFO(PopRun_Result),
-    ?INFO("____________________________________________________________________________________OK"),
-    ok.
+    ?END(PopRun_Result).
 
-% --------------------------------------------------------------------..................................................
+% --------------------------------------------------------------------
 test_with_agents_limit() ->
     [].
 test_with_agents_limit(_Config) ->
-    ?INFO("Correct creation of population with agents limit ......................................"),
+    ?HEAD("Correct population creation with agents limit .........."),
     Test_Agent_Id = eevo:agent(
         _Module = test_agent, % Module where the gen_agent is implemented
         _AgentProperties = test_agent:properties_example(),
@@ -193,15 +197,13 @@ test_with_agents_limit(_Config) ->
     PopRun_Result = receive {run_end, Population_Id, Result} -> Result after 10 -> error(my_timeout) end,
     timer:sleep(40),
     false = is_process_alive(Gov_PId),
-    ?INFO(PopRun_Result),
-    ?INFO("____________________________________________________________________________________OK"),
-    ok.
+    ?END(PopRun_Result).
 
-% --------------------------------------------------------------------..................................................
+% --------------------------------------------------------------------
 test_with_score_limit() ->
     [].
 test_with_score_limit(_Config) ->
-    ?INFO("Correct creation of population with score limit ......................................"),
+    ?HEAD("Correct population creation with score limit ..........."),
     Test_Agent_Id = eevo:agent(
         _Module = test_agent, % Module where the gen_agent is implemented
         _AgentProperties = test_agent:properties_example(),
@@ -213,82 +215,57 @@ test_with_score_limit(_Config) ->
     PopRun_Result = receive {run_end, Population_Id, Result} -> Result after 10 -> error(my_timeout) end,
     timer:sleep(40),
     false = is_process_alive(Gov_PId),
-    ?INFO(PopRun_Result),
-    ?INFO("____________________________________________________________________________________OK"),
-    ok.
+    ?END(PopRun_Result).
 
 
-% ----------------------------------------------------------------------------------------------------------------------
-% SPECIFIC HELPER FUNCTIONS --------------------------------------------------------------------------------------------
+% --------------------------------------------------------------------
+% SPECIFIC HELPER FUNCTIONS ------------------------------------------
 
-% --------------------------------------------------------------------..................................................
+% --------------------------------------------------------------------
 correct_population_generation() ->
-    ?INFO("Correct generation of a population ..................................................."),
-    Population_Id = eevo:population(),
-    Population = edb:read(Population_Id),
-    true = is_record(Population, population),
-    ?INFO("____________________________________________________________________________________OK"),
-    {ok, Population_Id}.
+    ?HEAD("Correct generation of a population ....................."),
+    Population_Id = eevo:population(test_populations:n5_1000ms()),
+    ?END({ok, Population_Id}).
 
-% --------------------------------------------------------------------..................................................
+% --------------------------------------------------------------------
 correct_agents_generation(N) ->
-    ?INFO("Correct generation of an agents ......................................................"),
-    Agents_Id = [eevo:agent(
-        _Module = test_agent,
-        _AgentProperties = test_agent:properties_example(),
-        _MutationF = fun test_agent:mutationF_example/1)
-                 || _ <- ?SEQ(N)],
-    Agents = edb:read(Agents_Id),
-    [true = is_record(Agent, agent) || Agent <- Agents],
-    ?INFO("____________________________________________________________________________________OK"),
-    {ok, Agents_Id}.
+    ?HEAD("Correct generation of an agents ........................"),
+    Agents_Id = [eevo:agent(test_agent:random_score()) || _<-?SEQ(N)],
+    ?END({ok, Agents_Id}).
 
-% --------------------------------------------------------------------..................................................
+% --------------------------------------------------------------------
 correct_start(Population_Id) ->
-    ?INFO("Correct start of a population form a defined demography .............................."),
-    {ok, Gov_PId} = eevo:start(Population_Id),
-    timer:sleep(10),
-    true = Gov_PId == eevo:ruler(Population_Id),
-    true = is_process_alive(Gov_PId),
-    ?INFO("____________________________________________________________________________________OK"),
-    {ok, Gov_PId}.
+    ?HEAD("Correct population start ..............................."),
+    Population_Id = eevo:start(Population_Id),
+    ?END(ok).
 
-% --------------------------------------------------------------------..................................................
-correct_agents_addition(Population_Id, TestAgents_Id) ->
-    ?INFO("Correct addition of multiple agents into the population .............................."),
-    {Async_Agents, [Last]} = lists:split(length(TestAgents_Id) - 1, TestAgents_Id),
-    [ok = eevo:add(Population_Id, Agent_Id) || Agent_Id <- Async_Agents], % Asynchronous addition
-    {ok, Last_Agent_PId} = eevo:run(Population_Id, Last), % Synchronous start
-    true = is_process_alive(Last_Agent_PId),
-    timer:sleep(100), ?INFO(TestAgents_Id),
-    true = is_process_alive(eevo:ruler(Population_Id)),
-    PoolList = ets:tab2list(eevo:score_pool(Population_Id)), ?INFO(PoolList),
-    L = length([Score || {{Score, A2}, _} <- PoolList, A1 <- TestAgents_Id, A1 == A2]), ?INFO(L),
-    L = length(TestAgents_Id),
-    ?INFO("____________________________________________________________________________________OK"),
-    ok.
+% --------------------------------------------------------------------
+correct_agents_addition(Population_Id, Agents_Id) ->
+    ?HEAD("Correct addition of multiple agents ...................."),
+    [ok = eevo:add(Population_Id, Id) || Id <- Agents_Id],
+    timer:sleep(100), ?INFO("Agents ids:", Agents_Id),
+    PoolList = ets:tab2list(eevo:top(Population_Id, 100)), 
+    ?INFO("Pool list after 100ms:", PoolList),
+    L = length([A1 || {_,A2} <- PoolList, A1 <- Agents_Id, A1 == A2]),
+    L = length(Agents_Id),
+    ?END(ok).
 
-% --------------------------------------------------------------------..................................................
+% --------------------------------------------------------------------
 correct_population_evolution(Population_Id) ->
-    ?INFO("Correct population evolution ........................................................."),
+    ?HEAD("Correct population evolution ..........................."),
     Top5_1 = eevo:top(Population_Id, 5),
-    timer:sleep(400),
+    ?INFO("Top5 after some ms", Top5_1),
+    timer:sleep(200),
     Top5_2 = eevo:top(Population_Id, 5),
-    ?INFO(Top5_1),
-    ?INFO(Top5_2),
+    ?INFO("Top5 after some ms", Top5_2),
     true = Top5_1 /= Top5_2,
-    ?INFO("____________________________________________________________________________________OK"),
-    ok.
+    ?END(ok).
 
-% --------------------------------------------------------------------..................................................
+% -------------------------------------------------------------------
 correct_stop(Population_Id) ->
-    ?INFO("The population is correctly killed ..................................................."),
-    Ruler_PId = eevo:ruler(Population_Id),
-    true = is_process_alive(Ruler_PId),
+    ?HEAD("The population is correctly killed ....................."),
     ok = eevo:stop(Population_Id),
-    false = is_process_alive(Ruler_PId),
-    ?INFO("____________________________________________________________________________________OK"),
-    ok.
+    ?END(ok).
 
 
 
