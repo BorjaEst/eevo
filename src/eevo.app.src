@@ -1,8 +1,19 @@
 {application, eevo,
     [{description, "Evolutionary algorithms application based on erlang programming language"},
      {vsn, "0.1.0"},
-     {modules, []}, %% TODO
-     {registered, []}, %% TODO
+     {modules, [
+         agent,
+         demography,
+         eevo_app,
+         eevo_sup,
+         eevo,
+         pop_sup,
+         ruler,
+         selection
+     ]}, 
+     {registered, [
+         eevo_sup
+     ]}, 
      {mod, {eevo_app, []}},
      {applications, [kernel, stdlib]},
      {env, []},
