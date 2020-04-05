@@ -165,6 +165,38 @@ mutation(Agent) when is_record(Agent,agent) -> Agent#agent.mutation.
 father(Agent) when is_record(Agent, agent) -> Agent#agent.father.
 
 %%--------------------------------------------------------------------
+%% @doc Clones an agent.
+%% @end
+%--------------------------------------------------------------------
+-spec clone_agent(Agent :: agent()) -> 
+    Clone :: agent().
+clone_agent(Agent) -> 
+    Agent#agent{id = ?NEW_AGENT_ID}.
+
+%%--------------------------------------------------------------------
+%% @doc Mutates an agent.
+%% @end
+%--------------------------------------------------------------------
+-spec mutate_agent(Agent :: agent()) -> 
+    Mutated :: agent().
+mutate_agent(Agent) -> 
+    Mutation_Function = Agent#agent.mutation,
+    Agent#agent{
+        id = ?NEW_AGENT_ID,
+        arguments = Mutation_Function(Agent#agent.arguments),
+        father    = Agent#agent.id
+    }.
+
+%%--------------------------------------------------------------------
+%% @doc Clones a ruler.
+%% @end
+%--------------------------------------------------------------------
+-spec clone_ruler(Ruler :: ruler()) -> 
+    Clone :: ruler().
+clone_ruler(Ruler) -> 
+    Ruler#ruler{id = ?NEW_RULER_ID}.
+
+%%--------------------------------------------------------------------
 %% @doc Returns the genealogical tree of an agent
 %% @end
 %%--------------------------------------------------------------------

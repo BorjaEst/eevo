@@ -64,7 +64,7 @@ population(Properties) ->
 start(Rules) when is_map(Rules) ->
     start(population(Rules));
 start(Population_Id) ->
-    ok = eevo_srv:run(Population_Id),
+    ok = eevo_srv:start(Population_Id),
     Population_Id.
 
 %%--------------------------------------------------------------------
@@ -90,7 +90,8 @@ agent(Features) ->
     demography:agent(Features).
 
 %%--------------------------------------------------------------------
-%% @doc Requests a population ruler to add an agent into its population
+%% @doc Requests a population ruler to add an agent into its 
+%% population.
 %% @end
 %%--------------------------------------------------------------------
 -spec add(Population_Id, Agent_Id) -> ok when
@@ -142,40 +143,25 @@ set_score(Population_Id, Agent_Id, Score) ->
 -spec score_pool(Population_Id :: population_id()) ->
     Pool :: ets:tid().
 score_pool(Population_Id) ->
-    Ruler = ruler_pid(Population_Id),
-    _Pool = ruler:score_pool(Ruler).
+    ruler:score_pool(Population_Id).
 
 %%--------------------------------------------------------------------
 %% @doc Returns the N agents with the highest score.
 %% @end
 %%--------------------------------------------------------------------
 -spec top(Population_Id :: population_id(), N :: integer()) ->
-    [{Agent_Id :: agent_id(), Score :: float(), Additional_Info :: term()}].
+    [{Agent_Id :: agent_id(), Score :: float()}].
 top(Population_Id, N) ->
-    Pool = score_pool(Population_Id),
-    get_last_n_from_pool(Pool, ets:last(Pool), N).
-
-get_last_n_from_pool(_Pool, '$end_of_table', _N) -> [];
-get_last_n_from_pool(_Pool, _ScoreAgent, 0)      -> [];
-get_last_n_from_pool(Pool, ScoreAgent, N) ->
-    [{{Score, Agent_Id}, Additional_Info}] = ets:lookup(Pool, ScoreAgent),
-    [{Agent_Id, Score, Additional_Info} | get_last_n_from_pool(Pool, ets:prev(Pool, ScoreAgent), N - 1)].
+    ruler:top(score_pool(Population_Id), N).
 
 %%--------------------------------------------------------------------
 %% @doc Returns the N agents with the lowest score.
 %% @end
 %%--------------------------------------------------------------------
 -spec bottom(Population_Id :: population_id(), N :: integer()) ->
-    [{Agent_Id :: agent_id(), Score :: float(), Additional_Info :: term()}].
+    [{Agent_Id :: agent_id(), Score :: float()}].
 bottom(Population_Id, N) ->
-    Pool = score_pool(Population_Id),
-    get_first_n_from_pool(Pool, ets:first(Pool), N).
-
-get_first_n_from_pool(_Pool, '$end_of_table', _N) -> [];
-get_first_n_from_pool(_Pool, _ScoreAgent, 0)      -> [];
-get_first_n_from_pool(Pool, ScoreAgent, N) ->
-    [{{Score, Agent_Id}, Additional_Info}] = ets:lookup(Pool, ScoreAgent),
-    [{Agent_Id, Score, Additional_Info} | get_first_n_from_pool(Pool, ets:next(Pool, ScoreAgent), N - 1)].
+    ruler:bottom(score_pool(Population_Id), N).
 
 %%--------------------------------------------------------------------
 %% @doc Returns the genealogical tree of an agent.
@@ -195,14 +181,10 @@ tree(Agent_Id) ->
 -spec mutate(Agent_Id :: agent_id()) ->
     Child_Id:: agent_id().
 mutate(Agent_Id) ->
-    Agent    = edb:read(Agent_Id),
-    Mutation = Agent#agent.mutation_function, 
-    Child = Agent#agent{
-        id         = ?AGENT_ID(nnref:new()),
-        properties = Mutation(Agent#agent.properties),
-        father     = Agent_Id},
+    Agent = edb:read(Agent_Id),
+    Child = demography:muate_agent(Agent),
     edb:write(Child),
-    Child#agent.id.
+    demography:id(Child).
 
 %%--------------------------------------------------------------------
 %% @doc Pretty formats an eevo record.
@@ -219,8 +201,5 @@ pformat(Element) ->
 
 % --------------------------------------------------------------------
 ruler_pid(Population_Id) -> 
-    ets:lookup_element(?EV_POOL, Population_Id, #pop.ruler).
-
-
-
+    ets:lookup_element(?EV_POOL, Population_Id, #population.ruler).
 
