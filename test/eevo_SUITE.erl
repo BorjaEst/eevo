@@ -170,8 +170,8 @@ test_with_time_limit(_Config) ->
     ?HEAD("Correct population creation with time limit ............"),
     Test_Agent_Id = eevo:agent(
         _Module = test_agent, % Module where the gen_agent is implemented
-        _AgentProperties = test_agent:properties_example(),
-        _MutationF = fun test_agent:mutationF_example/1),
+        _AgentProperties = test_agents:properties_example(),
+        _MutationF = fun test_agents:mutationF_example/1),
     Population_Id = eevo:population(?time_limit(?TEST_POP_TIME_LIMIT)),
     {ok, Gov_PId} = eevo:start(Population_Id),
     ok = eevo:add(Population_Id, Test_Agent_Id),
@@ -188,8 +188,8 @@ test_with_agents_limit(_Config) ->
     ?HEAD("Correct population creation with agents limit .........."),
     Test_Agent_Id = eevo:agent(
         _Module = test_agent, % Module where the gen_agent is implemented
-        _AgentProperties = test_agent:properties_example(),
-        _MutationF = fun test_agent:mutationF_example/1),
+        _AgentProperties = test_agents:properties_example(),
+        _MutationF = fun test_agents:mutationF_example/1),
     Population_Id = eevo:population(?agents_limit(?TEST_POP_AGENTS_LIMIT)),
     {ok, Gov_PId} = eevo:start(Population_Id),
     ok = eevo:add(Population_Id, Test_Agent_Id),
@@ -206,8 +206,8 @@ test_with_score_limit(_Config) ->
     ?HEAD("Correct population creation with score limit ..........."),
     Test_Agent_Id = eevo:agent(
         _Module = test_agent, % Module where the gen_agent is implemented
-        _AgentProperties = test_agent:properties_example(),
-        _MutationF = fun test_agent:mutationF_example/1),
+        _AgentProperties = test_agents:properties_example(),
+        _MutationF = fun test_agents:mutationF_example/1),
     Population_Id = eevo:population(?score_limit(?TEST_POP_SCORE_LIMIT)),
     {ok, Gov_PId} = eevo:start(Population_Id),
     ok = eevo:add(Population_Id, Test_Agent_Id),
@@ -230,7 +230,7 @@ correct_population_generation() ->
 % --------------------------------------------------------------------
 correct_agents_generation(N) ->
     ?HEAD("Correct generation of an agents ........................"),
-    Agents_Id = [eevo:agent(test_agent:random_score()) || _<-?SEQ(N)],
+    Agents_Id = [eevo:agent(test_agents:random_score()) || _<-?SEQ(N)],
     ?END({ok, Agents_Id}).
 
 % --------------------------------------------------------------------
