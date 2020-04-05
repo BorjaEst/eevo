@@ -12,7 +12,6 @@
 %% API
 %%-export([]).
 -export_type([type/0, ruler/0, agent/0]).
--export_type([]).
 
 %%% Populations are composed mostly by 2 types:
 -type type()   ::      ruler |      agent.
@@ -59,7 +58,7 @@ fields(agent) -> record_info(fields, agent).
 %% Creates a new agent on nndb and returns its Id
 %% @end
 %%--------------------------------------------------------------------
-% TODO: specs
+-spec agent(Properties :: agent:properties()) -> agent().
 agent(Properties) ->
     Agent = #agent{id = ?NEW_AGENT_ID},
     edit(Agent, Properties).
@@ -76,7 +75,7 @@ is_agent(Agent) -> is_record(Agent, agent).
 %% Creates a new ruler on nndb and returns its Id
 %% @end
 %%--------------------------------------------------------------------
-% TODO: specs
+-spec ruler(Properties :: ruler:properties()) -> ruler().
 ruler(Properties) ->
     Ruler = #ruler{id = ?NEW_RULER_ID},
     edit(Ruler, Properties).
@@ -244,7 +243,15 @@ pformat(_Element, [], _Index) ->
 %% Eunit white box tests
 %%====================================================================
 
+% --------------------------------------------------------------------
+% TESTS DESCRIPTIONS -------------------------------------------------
 
+% --------------------------------------------------------------------
+% SPECIFIC SETUP FUNCTIONS -------------------------------------------
 
+% --------------------------------------------------------------------
+% ACTUAL TESTS -------------------------------------------------------
 
+% --------------------------------------------------------------------
+% SPECIFIC HELPER FUNCTIONS ------------------------------------------
 

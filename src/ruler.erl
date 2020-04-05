@@ -15,13 +15,18 @@
 
 %% API
 %%-export([start_link/0]).
--export_types([id/0]).
+-export_type([id/0, property/0, properties/0]).
 
 %% gen_server callbacks
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, 
          terminate/2, code_change/3]).
 
 -type id() :: {Ref :: reference(), ruler}.
+-type property()   :: id | max_size | stop_time | generations | 
+                      target | selection.
+-type properties() :: #{
+    OptionalProperty :: property() => Value :: term()
+}.
 
 -define(MAX_SIZE_TO_SELECTION,     20).
 -define(POOL_UPDATE_INTERVAL,     100).
@@ -67,16 +72,27 @@
                #{logger_formatter=>#{title=>"RULER REQUEST"}})
 ).
 
-
 -ifdef(debug_mode).
 -define(STDCALL_TIMEOUT, infinity).
 -else.
 -define(STDCALL_TIMEOUT, 5000).
 -endif.
 
+
 %%%===================================================================
 %%% API
 %%%===================================================================
+
+%%--------------------------------------------------------------------
+%% @doc Creates a new ruler and stores it on the database.  
+%% @end
+%%--------------------------------------------------------------------
+-spec new(Properties) -> id() when
+    Properties :: properties().
+new(Properties) ->
+    Ruler = demography:ruler(Properties),
+    edb:write(Ruler),
+    demography:id(Ruler).
 
 %%--------------------------------------------------------------------
 %% @doc Starts the population ruler.
