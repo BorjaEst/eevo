@@ -39,8 +39,8 @@
     {Table_Name :: atom(), [Fields :: atom()]}.
 attributes_table() ->
     [
-        {ruler, elements:fields(ruler)},
-        {agent, elements:fields(agent)}
+        {ruler, demography:fields(ruler)},
+        {agent, demography:fields(agent)}
     ].
 
 %%--------------------------------------------------------------------
