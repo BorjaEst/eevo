@@ -4,7 +4,7 @@
 %%%
 %%% @end
 %%%-------------------------------------------------------------------
--module(test_agent).
+-module(test_agents).
 -compile([export_all, nowarn_export_all]). %%TODO: To delete after build
 
 %% API 
