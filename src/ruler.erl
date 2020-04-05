@@ -323,9 +323,16 @@ handle_info(Info, State) ->
 %%--------------------------------------------------------------------
 -spec terminate(Reason :: (normal | shutdown | {shutdown, term()} | term()),
                 State :: #s{}) -> term().
-terminate(Reason, _State) ->
+terminate(Reason, State) ->
     ?LOG_INFO(#{what => "Ruler terminating", pid => self(), 
                 details => #{reason => Reason}}),
+    io:format([
+        "End of training ~n",
+        io_lib:format("\tRuning time:\t~p~n", [State#s.run_time]),
+        io_lib:format("\tGenerations:\t~p~n", [State#s.generation]),
+        io_lib:format("\tBest score:\t~p~n",  [State#s.best_score]),
+        io_lib:format("\ttop3 agents:\t~p~n", [top(get(spool), 3)])
+    ]),
     ok.
 
 %%--------------------------------------------------------------------
