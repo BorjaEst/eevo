@@ -53,7 +53,9 @@ attributes_table() ->
     Rules         :: rules(),
     Population_Id :: population_id().
 population(Properties) ->
-    demography:ruler(Properties).
+    Ruler = demography:ruler(Properties),
+    edb:write(Ruler),
+    demography:id(Ruler).
 
 %%--------------------------------------------------------------------
 %% @doc Starts a population and its ruler
