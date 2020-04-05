@@ -57,7 +57,10 @@ start_ruler(Supervisor, Ruler_id) ->
 %%--------------------------------------------------------------------
 start_agent(Id, Population) ->
     Supervisor = Population#population.supervisor, 
-    {ok, _} = supervisor:start_child(Supervisor, ?SPECS_AGENT(Id)),
+    {ok, Pid} = supervisor:start_child(Supervisor, ?SPECS_AGENT(Id)),
+    true = ets:insert(?AGENTS_POOL, #dni{
+        pid = Pid, agent_id = Id, 
+        population_id = Population#population.id}),
     ok.
 
 %%%===================================================================

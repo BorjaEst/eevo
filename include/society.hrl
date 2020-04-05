@@ -5,6 +5,7 @@
 %%% @end
 %%%-------------------------------------------------------------------
 
+% This table contains all the data about the running populations
 -define(EV_POOL, society_pool).
 -define(EV_POOL_OPTIONS, [
     named_table,        % The name of the table must be global
@@ -25,10 +26,24 @@
     best_score :: float()     % Max achieved score
 }).
 
+% This table contains the identification about the runing agents
+-define(AGENTS_POOL, agents_pool).
+-define(AGENTS_POOL_OPTIONS, [
+    named_table,        % The name of the table must be global
+    public,             % Multiple pop_sup have to register in it
+    set,                % The pool must be a set (no repeated values)
+    {keypos, #dni.pid}  % The key of the record must be the pid
+]).
+-record(dni, {
+    pid           :: pid(),      % Identifies the process id
+    agent_id      :: agent:id(), % Database agent identification
+    population_id :: ruler:id()  % Population it belongs to
+}).
 
--define(add_score(Properties, Score), 
-    eevo:add_score(Population_Id, Agent_Id, Score)).
--define(end_agent(Properties), exit(end_agent)).
+
+% Simplification macros
+-define(add_score(Pid, Score), eevo:add_score(Pid, Score)).
+-define(end_agent(Pid), exit(Pid, normal)).
 
 -define(time_limit(Milliseconds), [{run_time, Milliseconds}]).
 -define(agents_limit(N_Agents),   [{run_agents, N_Agents}]).

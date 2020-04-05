@@ -116,6 +116,13 @@ kill(Population_Id, Agent_Id) ->
 %% @doc Add a score value to an agent id. The call is asynchronous.
 %% @end
 %%--------------------------------------------------------------------
+-spec add_score(Pid, Score) -> ok when
+    Pid   :: population_id(),
+    Score :: float().
+add_score(Pid, Score) ->
+    [DNI] = ets:lookup(?AGENTS_POOL, Pid),
+    add_score(DNI#dni.population_id, DNI#dni.agent_id, Score).
+
 -spec add_score(Population_Id, Agent_Id, Score) -> ok when
     Population_Id :: population_id(),
     Agent_Id      :: agent_id(),
