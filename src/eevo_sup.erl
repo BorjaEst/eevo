@@ -75,13 +75,14 @@ stop_population(Pop_Id) ->
 %% Before OTP 18 tuples must be used to specify a child. e.g.
 %% Child :: {Id,StartFunc,Restart,Shutdown,Type,Modules}
 init([]) ->
-    SupFlags = #{strategy  => rest_for_one, % Avoid populations alive if eevo_srv dies
+    SupFlags = #{strategy  => rest_for_one, 
                  intensity => 10,
                  period    => 36},
     ChildSpecs = [
         ?SPECS_DATALOG
     ],
     start_ev_pool(),
+    start_agents_pool(),
     {ok, {SupFlags, ChildSpecs}}.
 
     
@@ -91,4 +92,8 @@ init([]) ->
 
 start_ev_pool() ->  
     ets:new(?EV_POOL, ?EV_POOL_OPTIONS).
+
+
+start_agents_pool() ->  
+    ets:new(?AGENTS_POOL, ?AGENTS_POOL_OPTIONS).
 
