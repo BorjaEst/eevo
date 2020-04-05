@@ -125,18 +125,6 @@ add_score(Population_Id, Agent_Id, Score) ->
     ruler:add_score(Ruler, Agent_Id, Score).
 
 %%--------------------------------------------------------------------
-%% @doc Sets a score value to an agent id. The call is asynchronous.
-%% @end
-%%--------------------------------------------------------------------
--spec set_score(Population_Id, Agent_Id, Score) -> ok when
-    Population_Id :: population_id(),
-    Agent_Id      :: agent_id(),
-    Score          :: float().
-set_score(Population_Id, Agent_Id, Score) ->
-    Ruler = ruler_pid(Population_Id),
-    ruler:set_score(Ruler, Agent_Id, Score).
-
-%%--------------------------------------------------------------------
 %% @doc Returns the ETS with the score table managed by a ruler.
 %% @end
 %%--------------------------------------------------------------------
