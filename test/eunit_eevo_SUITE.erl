@@ -99,7 +99,6 @@ groups() ->
 %%--------------------------------------------------------------------
 all() ->
     [
-        eunit_evolutionary_algorithm,
         eunit_selection_algorithm
     ].
 
@@ -115,9 +114,6 @@ all() ->
 %% Comment = term()
 %%--------------------------------------------------------------------
 
-eunit_evolutionary_algorithm() ->    [].
-eunit_evolutionary_algorithm(_Config) ->    ok = eunit:test([evolutionary_algorithm]).
-
 eunit_selection_algorithm() ->    [].
-eunit_selection_algorithm(_Config) ->    ok = eunit:test([selection_algorithm]).
+eunit_selection_algorithm(_Config) ->    ok = eunit:test([selection]).
 
