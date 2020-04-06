@@ -248,9 +248,9 @@ handle_call(Request, _From, State) ->
 %%--------------------------------------------------------------------
 handle_cast({queue, Id}, State) ->
     ?LOG_QUEUE_REQUEST_RECEIVED(Id, State#s.queue),
-    {noreply, State#s{
+    start_agent(State#s{
         queue = queue:in(Id, State#s.queue)
-    }};
+    });
 handle_cast({kill, Id}, State) ->
     ?LOG_KILL_REQUEST_RECEIVED(Id, State#s.agents),
     case maps:get(Id, State#s.agents, error) of
@@ -370,19 +370,20 @@ eval_best(Score, State) ->
     end.
 
 % --------------------------------------------------------------------
-start_agent(State) ->
+start_agent(#s{size={Size,Max_Size}} = State) when Size<Max_Size ->
     case queue:out(State#s.queue) of
         {{value,Id}, Queue} -> Id = run_agent(Id);
         {     empty, Queue} -> Id = run_mutated(State)
     end,
-    {      Size,      Max_Size} = State#s.size,
     {Generation, MaxGeneration} = State#s.generation,    
     {noreply, State#s{
         size       = {      Size+1,      Max_Size},
         generation = {Generation+1, MaxGeneration},
         agents     = maps:put(Id, ?INIT_SCORE, State#s.agents),
         queue      = Queue
-    }}.
+    }};
+start_agent(State) ->
+    {noreply, State}.
 
 % --------------------------------------------------------------------
 run_agent(Id) -> 
