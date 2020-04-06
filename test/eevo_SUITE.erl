@@ -169,7 +169,7 @@ simple_population(_Config) ->
 test_with_time_limit() ->
     [].
 test_with_time_limit(_Config) ->
-    Population = test_populations:n5_1000ms(),
+    Population = test_populations:n5_100ms(),
     Agents  = [test_agents:random_score()||_<-?SEQ(?PARALLEL_AGENTS)],
     Results = test_population(Population, Agents),
     print_results(Results).
@@ -229,9 +229,9 @@ correct_start(Population_Id) ->
 correct_agents_addition(Population_Id, Agents_Id) ->
     ?HEAD("Correct addition of multiple agents ...................."),
     [ok = eevo:add(Population_Id, Id) || Id <- Agents_Id],
-    timer:sleep(200), ?INFO("Agents ids:", Agents_Id),
+    timer:sleep(20), ?INFO("Agents ids:", Agents_Id),
     PoolList = ets:tab2list(eevo:score_pool(Population_Id)), 
-    ?INFO("Pool list after 200ms:", PoolList),
+    ?INFO("Pool list after 20ms:", PoolList),
     L = length([A1 || {{_,A2}}<-PoolList, A1<-Agents_Id, A1==A2]),
     L = length(Agents_Id),
     ?END(ok).
@@ -239,12 +239,12 @@ correct_agents_addition(Population_Id, Agents_Id) ->
 % --------------------------------------------------------------------
 correct_population_evolution(Population_Id) ->
     ?HEAD("Correct population evolution ..........................."),
-    Top20_1 = eevo:top(Population_Id, 20),
-    ?INFO("Top20 after some ms", Top20_1),
-    timer:sleep(100),
-    Top20_2 = eevo:top(Population_Id, 20),
-    ?INFO("Top20 after some ms", Top20_2),
-    true = Top20_1 /= Top20_2,
+    Top_1 = eevo:top(Population_Id, 20),
+    ?INFO("Top after some ms", Top_1),
+    timer:sleep(20),
+    Top_2 = eevo:top(Population_Id, 20),
+    ?INFO("Top after some ms", Top_2),
+    true = Top_1 /= Top_2,
     ?END(ok).
 
 

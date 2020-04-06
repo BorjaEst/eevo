@@ -28,10 +28,10 @@
     OptionalProperty :: property() => Value :: term()
 }.
 
--define(MAX_SIZE_TO_SELECTION,     20).
--define(POOL_UPDATE_INTERVAL,     100).
--define(CLEAN_DEAD_INTERVAL,       90).
--define(RUNTIME_UPDATE_INTERVAL,   25).
+-define(MAX_SIZE_TO_SELECTION,    20).
+-define(POOL_UPDATE_INTERVAL,     10).
+-define(CLEAN_DEAD_INTERVAL,      90).
+-define(RUNTIME_UPDATE_INTERVAL,   2).
 -define(ETS_TABLE_OPTIONS, [ordered_set]).
 -define(INIT_SCORE, 0.0).
 

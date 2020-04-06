@@ -24,7 +24,7 @@ mutation_example(Arguments) ->
     Arguments#{score_base := Base + rand:uniform(10)}.
 
 function_example(Arguments) ->
-    timer:sleep(rand:uniform(50)),
+    timer:sleep(rand:uniform(10)),
     MyBase  = maps:get(score_base, Arguments),
     MyScore = rand:uniform(100),
     eevo:score(self(), MyBase+MyScore).
