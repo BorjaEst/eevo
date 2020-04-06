@@ -8,6 +8,7 @@
 -compile([export_all, nowarn_export_all]). %%TODO: To delete after build
 
 -include_lib("eunit/include/eunit.hrl").
+-include_lib("society.hrl").
 
 %% API
 %%-export([]).
@@ -23,11 +24,12 @@
 
 -record(ruler, {
     id = ?NEW_RULER_ID :: ruler:id(),      % Ruler/Population id
-    max_size    = 5     :: integer(),      % Population max agents
-    stop_time   = infinity :: integer(),   % Time(ms) before end
-    generations = infinity :: integer(),   % Tested agents before end
-    target      = infinity :: float(),     % Score target before end
-    selection = top3 :: selection:func()  % Selection for agents pool
+    max_size   = 5     :: integer(),      % Population max agents
+    run_time   = {0, infinity} :: runtime_specs(),  
+    generation = {0, infinity} :: generation_specs(),   
+    score      = {0, infinity} :: score_specs(),   
+    champion   = undefined     :: agent:id(), % Best score agent_id                
+    selection  = top3 :: selection:func()  % Selection for agents pool
 }).
 -type ruler() :: #ruler{}.
 
@@ -114,17 +116,20 @@ edit_agent(Agent, []) ->
     Agent.
 
 edit_ruler(Ruler, [{id,          Value} | Options]) -> 
-    edit_ruler(Ruler#ruler{         id = Value}, Options); 
+    edit_ruler(Ruler#ruler{         id = Value    }, Options); 
 edit_ruler(Ruler, [{max_size,    Value} | Options]) -> 
-    edit_ruler(Ruler#ruler{   max_size = Value}, Options); 
+    edit_ruler(Ruler#ruler{   max_size = Value    }, Options); 
 edit_ruler(Ruler, [{stop_time,   Value} | Options]) -> 
-    edit_ruler(Ruler#ruler{  stop_time = Value}, Options); 
-edit_ruler(Ruler, [{generations, Value} | Options]) -> 
-    edit_ruler(Ruler#ruler{generations = Value}, Options); 
+    RunTime    = {Value, element(2, Ruler#ruler.run_time)},
+    edit_ruler(Ruler#ruler{   run_time = RunTime  }, Options); 
+edit_ruler(Ruler, [{oldest,      Value} | Options]) -> 
+    Generation = {Value, element(2, Ruler#ruler.generation)},
+    edit_ruler(Ruler#ruler{generation = Generation}, Options); 
 edit_ruler(Ruler, [{target,      Value} | Options]) -> 
-    edit_ruler(Ruler#ruler{     target = Value}, Options); 
+    Score      = {Value, element(2, Ruler#ruler.score)},
+    edit_ruler(Ruler#ruler{     score = Score     }, Options); 
 edit_ruler(Ruler, [{selection,   Value} | Options]) -> 
-    edit_ruler(Ruler#ruler{  selection = Value}, Options); 
+    edit_ruler(Ruler#ruler{ selection = Value     }, Options); 
 edit_ruler(Ruler, []) ->
     Ruler.
 
@@ -219,23 +224,23 @@ max_size(Ruler) when is_record(Ruler, ruler) -> Ruler#ruler.max_size.
 %% @doc Returns the maximum running time allowed in milliseconds.
 %% @end
 %%--------------------------------------------------------------------
--spec stop_time(Ruler :: ruler()) -> StopTime :: integer().
-stop_time(Ruler) when is_record(Ruler, ruler) -> Ruler#ruler.stop_time.
+-spec run_time(Ruler :: ruler()) -> runtime_specs().
+run_time(Ruler) when is_record(Ruler, ruler) -> Ruler#ruler.run_time.
 
 %%--------------------------------------------------------------------
 %% @doc Returns the ruler planed maximum generations.
 %% @end
 %%--------------------------------------------------------------------
--spec generations(Ruler :: ruler()) -> generations.
-generations(Ruler) when is_record(Ruler, ruler) -> 
-    Ruler#ruler.generations.
+-spec generation(Ruler :: ruler()) -> generation_specs().
+generation(Ruler) when is_record(Ruler, ruler) -> 
+    Ruler#ruler.generation.
 
 %%--------------------------------------------------------------------
 %% @doc Returns the ruler score target.
 %% @end
 %%--------------------------------------------------------------------
--spec target(Ruler :: ruler()) -> ScoreTarget :: float().
-target(Ruler) when is_record(Ruler, ruler) -> Ruler#ruler.target.
+-spec score(Ruler :: ruler()) -> score_specs().
+score(Ruler) when is_record(Ruler, ruler) -> Ruler#ruler.score.
 
 %%--------------------------------------------------------------------
 %% @doc Returns the ruler selection.
