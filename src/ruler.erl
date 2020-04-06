@@ -205,7 +205,7 @@ init([Id, Supervisor]) ->
     self() ! update_population, % Request to update pool after start
     timer:send_interval(   ?POOL_UPDATE_INTERVAL, update_population),
     timer:send_interval(    ?CLEAN_DEAD_INTERVAL,        clean_dead),
-    timer:send_interval(?RUNTIME_UPDATE_INTERVAL,    update_runtime),
+    timer:send_interval(?RUNTIME_UPDATE_INTERVAL,     eval_run_time),
     timer:send_after(demography:stop_time(Ruler),       runtime_end),
     {ok, running, #s{
         size       = {  0,    demography:max_size(Ruler)},
@@ -270,6 +270,8 @@ format_status(_Opt, [_PDict, _StateName, _State]) ->
 %%                   {keep_state_and_data, Actions}
 %% @end
 %%--------------------------------------------------------------------
+%% Enter events
+%%--------------------------------------------------------------------
 handle_event(enter, OldState, running, State) ->
     ?LOG_STATE_CHANGE(OldState),
     {next_state, running, State};
@@ -278,25 +280,14 @@ handle_event(enter, OldState, stopped, State) ->
     [pop_sup:stop_agent(Id,get(sup))||Id<-maps:keys(State#s.agents)],
     print_stop_report(State),
     {next_state, stopped, State};
+%%--------------------------------------------------------------------
+%% Cast requests
+%%--------------------------------------------------------------------
 handle_event(cast, {queue, Id}, StateName, State) ->
     ?LOG_QUEUE_REQUEST_RECEIVED(Id, State#s.queue),
     handle_event(internal, new, StateName, State#s{
         queue = queue:in(Id, State#s.queue)
     });
-handle_event(internal, new, running,#s{size={S,M}}=State) when S<M ->
-    case queue:out(State#s.queue) of
-        {{value,Id}, Queue} -> Id = run_agent(Id);
-        {     empty, Queue} -> Id = run_mutated(State)
-    end,
-    {Generation, MaxGeneration} = State#s.generation,    
-    {keep_state, State#s{
-        size       = {         S+1,             M},
-        generation = {Generation+1, MaxGeneration},
-        agents     = maps:put(Id, ?INIT_SCORE, State#s.agents),
-        queue      = Queue
-    }};
-handle_event(internal, new,_StateName, State) ->
-    {keep_state, State};
 handle_event(cast,  {kill, Id},_StateName, State) ->
     ?LOG_KILL_REQUEST_RECEIVED(Id, State#s.agents),
     case pop_sup:stop_agent(Id, get(sup))of
@@ -315,10 +306,9 @@ handle_event(cast, {score, Id, Score}, StateName, State) ->
                 agents = maps:update(Id, NS, State#s.agents)
             })
     end;
-handle_event(info,    update_runtime,_StateName, State) ->
-    Elapsed = erlang:monotonic_time(millisecond) - get(start_time),
-    {_, Runtime_End} = State#s.run_time,
-    {keep_state, State#s{run_time = {Elapsed, Runtime_End}}};
+%%--------------------------------------------------------------------
+%% Update of information
+%%--------------------------------------------------------------------
 handle_event(info, update_population,_StateName, State) ->
     update_population(State),
     {keep_state, State};
@@ -330,7 +320,31 @@ handle_event(info, {'DOWN',Ref,process,Pid,_}, StateName, State) ->
     handle_event(internal, eval_generation, StateName, State#s{
         size = {Size-1, Max_Size}
     });
-handle_event(internal, eval_generation,  running, State) ->
+%%--------------------------------------------------------------------
+%% New agents
+%%--------------------------------------------------------------------
+handle_event(internal, new, running,#s{size={S,M}}=State) when S<M ->
+    case queue:out(State#s.queue) of
+        {{value,Id}, Queue} -> Id = run_agent(Id);
+        {     empty, Queue} -> Id = run_mutated(State)
+    end,
+    {Generation, MaxGeneration} = State#s.generation,    
+    {keep_state, State#s{
+        size       = {         S+1,             M},
+        generation = {Generation+1, MaxGeneration},
+        agents     = maps:put(Id, ?INIT_SCORE, State#s.agents),
+        queue      = Queue
+    }};
+handle_event(internal, new,_StateName, State) ->
+    {keep_state, State};
+%%--------------------------------------------------------------------
+%% Evaluation of new report results
+%%--------------------------------------------------------------------
+handle_event(info,     eval_run_time,_StateName, State) ->
+    Elapsed = erlang:monotonic_time(millisecond) - get(start_time),
+    {_, Runtime_End} = State#s.run_time,
+    {keep_state, State#s{run_time = {Elapsed, Runtime_End}}};
+handle_event(internal, eval_generation, running, State) ->
     case State#s.generation of
         {N, Max} when N< Max -> 
             handle_event(internal, new, running, State);
@@ -349,12 +363,18 @@ handle_event(internal, {eval_score,S}, StateName, State) ->
             handle_event(internal, score_reached, 
                          StateName, State#s{best_score={S,T}})
     end;
+%%--------------------------------------------------------------------
+%% Events which would stop the population
+%%--------------------------------------------------------------------
 handle_event(info,         runtime_end, running, State) -> 
     {next_state, stopped, State};
 handle_event(internal, last_generation, running, State) ->
     {next_state, stopped, State};
 handle_event(internal,   score_reached, running, State) ->
     {next_state, stopped, State};
+%%--------------------------------------------------------------------
+%% Unknown agents and events
+%%--------------------------------------------------------------------
 handle_event(internal, {unknown, Id},_StateName, State) ->
     ?LOG_UNKNOWN_AGENT(Id, State#s.agents),
     {keep_state, State};
