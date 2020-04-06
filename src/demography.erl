@@ -131,9 +131,11 @@ edit_ruler(Ruler, [{generation, Value} | Options]) ->
     edit_ruler(Ruler#ruler{generation = Value     }, Options); 
 edit_ruler(Ruler, [{    target, Value} | Options]) -> 
     Score      = {Value, element(2, Ruler#ruler.score)},
-    edit_ruler(Ruler#ruler{    score = Score      }, Options); 
+    edit_ruler(Ruler#ruler{     score = Score     }, Options); 
 edit_ruler(Ruler, [{     score, Value} | Options]) -> 
-    edit_ruler(Ruler#ruler{    score = Value      }, Options); 
+    edit_ruler(Ruler#ruler{     score = Value     }, Options); 
+edit_ruler(Ruler, [{  champion, Value} | Options]) -> 
+    edit_ruler(Ruler#ruler{  champion = Value     }, Options); 
 edit_ruler(Ruler, [{ selection, Value} | Options]) -> 
     edit_ruler(Ruler#ruler{ selection = Value     }, Options); 
 edit_ruler(Ruler, []) ->
@@ -249,12 +251,18 @@ generation(Ruler) when is_record(Ruler, ruler) ->
 score(Ruler) when is_record(Ruler, ruler) -> Ruler#ruler.score.
 
 %%--------------------------------------------------------------------
+%% @doc Returns the ruler champion.
+%% @end
+%%--------------------------------------------------------------------
+-spec champion(Ruler :: ruler()) -> agent:id().
+champion(Ruler) when is_record(Ruler, ruler) -> Ruler#ruler.champion.
+
+%%--------------------------------------------------------------------
 %% @doc Returns the ruler selection.
 %% @end
 %%--------------------------------------------------------------------
 -spec selection(Ruler :: ruler()) -> selection:func().
 selection(Ruler) when is_record(Ruler, ruler) -> Ruler#ruler.selection.
-
 
 %%--------------------------------------------------------------------
 %% @doc
@@ -276,6 +284,7 @@ pformat(Element, [Field | ListOf_Fields], Index) ->
      pformat(Element, ListOf_Fields, Index + 1)];
 pformat(_Element, [], _Index) ->
     [].
+
 
 %%====================================================================
 %% Internal functions
