@@ -20,11 +20,14 @@
     supervisor :: pid(),      % Population supervisor
     ruler      :: pid(),      % Population ruler
     score_pool :: ets:tid(),  % Id of the score pool
-    size       :: integer(),  % Population size
-    run_time   :: integer(),  % Time population has run
-    generation :: integer(),  % Number of run agents
-    best_score :: float()     % Max achieved score
+    size       :: {Current :: integer(), Limit :: integer()},
+    runtime    :: runtime_specs(),     % Time population has run
+    generation :: generation_specs(),  % Number of run agents
+    score      :: score_specs()        % Max achieved score
 }).
+-type runtime_specs()    :: {Current :: integer(), Limit :: integer()}.
+-type generation_specs() :: {Current :: integer(), Limit :: integer()}.
+-type score_specs()      :: {Current ::   float(), Limit ::   float()}. 
 
 % This table contains the identification about the runing agents
 -define(AGENTS_POOL, agents_pool).
