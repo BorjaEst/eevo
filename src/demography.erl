@@ -120,17 +120,17 @@ edit_ruler(Ruler, [{        id, Value} | Options]) ->
 edit_ruler(Ruler, [{  max_size, Value} | Options]) -> 
     edit_ruler(Ruler#ruler{  max_size = Value     }, Options); 
 edit_ruler(Ruler, [{  stoptime, Value} | Options]) -> 
-    RunTime    = {Value, element(2, Ruler#ruler.runtime)},
+    RunTime    = {element(1, Ruler#ruler.runtime), Value},
     edit_ruler(Ruler#ruler{   runtime = RunTime   }, Options); 
 edit_ruler(Ruler, [{   runtime, Value} | Options]) -> 
     edit_ruler(Ruler#ruler{   runtime = Value     }, Options); 
-edit_ruler(Ruler, [{    oldest, Value} | Options]) -> 
-    Generation = {Value, element(2, Ruler#ruler.generation)},
+edit_ruler(Ruler, [{generations,Value} | Options]) -> 
+    Generation = {element(1, Ruler#ruler.generation), Value},
     edit_ruler(Ruler#ruler{generation = Generation}, Options); 
 edit_ruler(Ruler, [{generation, Value} | Options]) -> 
     edit_ruler(Ruler#ruler{generation = Value     }, Options); 
 edit_ruler(Ruler, [{    target, Value} | Options]) -> 
-    Score      = {Value, element(2, Ruler#ruler.score)},
+    Score      = {element(1, Ruler#ruler.score), Value},
     edit_ruler(Ruler#ruler{     score = Score     }, Options); 
 edit_ruler(Ruler, [{     score, Value} | Options]) -> 
     edit_ruler(Ruler#ruler{     score = Value     }, Options); 

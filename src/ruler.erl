@@ -46,10 +46,10 @@
     from       :: {Pid ::pid(), Ref :: reference()}
  }).
 
--define(LOG_STATE_CHANGE(OldState),
+-define(LOG_STATE_CHANGE(OldState, NewState),
     ?LOG_INFO(#{what => "Ruler state has changed", 
                 pid=>self(), id => get(id), details => #{
-                    state_new=>?FUNCTION_NAME, old_state=>OldState}},
+                    state_new=>NewState, old_state=>OldState}},
               #{logger_formatter=>#{title=>"RULER STATE"}})
 ).
 -define(LOG_RUN_REQUEST_RECEIVED,
@@ -67,9 +67,9 @@
                  details => #{id => Id, agents => Agents}},
                #{logger_formatter=>#{title=>"RULER REQUEST"}})
 ).
--define(LOG_SCORE_REQUEST_RECEIVED(Id, Score, Agents),
+-define(LOG_SCORE_REQUEST_RECEIVED(Id, Score),
     ?LOG_DEBUG(#{what => "Received cast score request", pid=>self(),
-                 details => #{id=>Id, score=>Score, agents=>Agents}},
+                 details => #{id=>Id, score=>Score}},
                #{logger_formatter=>#{title=>"RULER REQUEST"}})
 ).
 -define(LOG_AGENT_DOWN(DownRef, Pid),
@@ -217,15 +217,16 @@ init([Id, Supervisor]) ->
     process_flag(trap_exit, true),
     ?LOG_INFO("Population_Id:~p initiated", [Id]),
     self() ! update_population, % Request to update pool after start
+    {RunnedTime, EndTime} = demography:runtime(Ruler),
+    timer:send_after(       EndTime - RunnedTime,       runtime_end),
     timer:send_interval(   ?POOL_UPDATE_INTERVAL, update_population),
     timer:send_interval(    ?CLEAN_DEAD_INTERVAL,        clean_dead),
     timer:send_interval(?RUNTIME_UPDATE_INTERVAL,     eval_runtime),
-    timer:send_after(demography:stop_time(Ruler),       runtime_end),
-    {ok, stopped, #s{ %Values are 0 to diferenciate from a restart
+    {ok, stopped, #s{
         size       = {  0,    demography:max_size(Ruler)},
-        runtime    = {  0,   demography:stop_time(Ruler)},
-        generation = {  0, demography:generations(Ruler)}, 
-        score      = {0.0,      demography:target(Ruler)},   
+        runtime    = demography:runtime(Ruler),
+        generation = demography:generation(Ruler), 
+        score      = demography:score(Ruler),   
         selection  = demography:selection(Ruler),
         agents     = #{},
         queue      = queue:new()
@@ -287,23 +288,25 @@ format_status(_Opt, [_PDict, _StateName, _State]) ->
 %% Enter events
 %%--------------------------------------------------------------------
 handle_event(enter, OldState, running, State) ->
-    ?LOG_STATE_CHANGE(OldState),
+    ?LOG_STATE_CHANGE(OldState, running),
     {next_state, running, State};
 handle_event(enter, running, stopped, State) ->
-    ?LOG_STATE_CHANGE(running),
+    ?LOG_STATE_CHANGE(running, stopped),
     [pop_sup:stop_agent(Id,get(sup))||Id<-maps:keys(State#s.agents)],
     print_stop_report(State),
     save_population(State),
     {next_state, stopped, State, {reply, State#s.from, ok}};
 handle_event(enter, stopped, stopped, State) ->
-    ?LOG_STATE_CHANGE(stopped),
+    ?LOG_STATE_CHANGE(stopped, stopped),
     {next_state, stopped, State};
 %%--------------------------------------------------------------------
 %% Call requests
 %%--------------------------------------------------------------------
 handle_event({call, From}, run, stopped, State) ->
     ?LOG_RUN_REQUEST_RECEIVED,
-    {next_state, running, State#s{from = From}};
+    Seq = lists:seq(1, queue:len(State#s.queue)),
+    {next_state, running, State#s{from = From},
+        [{next_event, internal, new} || _ <- Seq]};
 %%--------------------------------------------------------------------
 %% Cast requests
 %%--------------------------------------------------------------------
@@ -319,7 +322,7 @@ handle_event(cast,  {kill, Id},_StateName, State) ->
         {error, not_found} -> keep_state_and_data
     end;
 handle_event(cast, {score, Id, Score}, StateName, State) ->
-    ?LOG_SCORE_REQUEST_RECEIVED(Id, Score, State#s.agents),
+    ?LOG_SCORE_REQUEST_RECEIVED(Id, Score),
     case maps:get(Id, State#s.agents, error) of
         error    -> 
             handle_event(internal, {unknown, Id}, StateName, State);

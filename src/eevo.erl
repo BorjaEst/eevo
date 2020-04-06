@@ -72,10 +72,8 @@ start(Rules, Seeds) when is_map(Rules) ->
     start(population(Rules), Seeds);
 
 start(Population_Id, Seeds) ->
-    case eevo_sup:start_population(Population_Id) of 
-        {   ok,                 Pid } -> Ruler = Pid;
-        {error,{already_started,Pid}} -> Ruler = Pid
-    end,
+    eevo_sup:start_population(Population_Id),
+    Ruler = ruler_pid(Population_Id),
     [ok = ruler:async_queue(Ruler,Id) || Id <- Seeds],
     ok  = ruler:run(Ruler),
     Population_Id.
