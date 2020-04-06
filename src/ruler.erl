@@ -37,12 +37,13 @@
 
 -record(s, { % Short state record 
     size       :: {Current :: integer(), Max :: integer()},
-    run_time   :: {Current :: integer(), End :: integer()},
+    runtime    :: {Current :: integer(), End :: integer()},
     generation :: {Current :: integer(), End :: integer()}, 
-    best_score :: {Current ::   float(), End ::   float()},   
+    score      :: {Current ::   float(), End ::   float()},   
     selection  :: selection:func(),
     agents     :: #{Agent_Id :: agent:id() => Score :: number()},
-    queue      :: queue:queua()
+    queue      :: queue:queua(),
+    from       :: {Pid ::pid(), Ref :: reference()}
  }).
 
 -define(LOG_STATE_CHANGE(OldState),
@@ -50,6 +51,11 @@
                 pid=>self(), id => get(id), details => #{
                     state_new=>?FUNCTION_NAME, old_state=>OldState}},
               #{logger_formatter=>#{title=>"RULER STATE"}})
+).
+-define(LOG_RUN_REQUEST_RECEIVED,
+    ?LOG_DEBUG(#{what => "Received run request", pid=>self(),
+                 details => #{}},
+               #{logger_formatter=>#{title=>"RULER REQUEST"}})
 ).
 -define(LOG_QUEUE_REQUEST_RECEIVED(Id, Queue),
     ?LOG_DEBUG(#{what => "Received cast queue request", pid=>self(),
@@ -106,6 +112,14 @@ new(Properties) ->
 -spec start_link(Ruler_Id :: id()) -> gen_statem:start_ret().
 start_link(Ruler_Id) ->
     gen_statem:start_link(?MODULE, [Ruler_Id, self()], []).
+
+%%--------------------------------------------------------------------
+%% @doc Request the ruler to run the population.
+%% @end
+%%--------------------------------------------------------------------
+-spec run(Ruler :: pid()) -> ok.
+run(Ruler) -> 
+    gen_statem:call(Ruler, run).
 
 %%--------------------------------------------------------------------
 %% @doc Request the agent addition to the population. Asynchronous.
@@ -205,13 +219,13 @@ init([Id, Supervisor]) ->
     self() ! update_population, % Request to update pool after start
     timer:send_interval(   ?POOL_UPDATE_INTERVAL, update_population),
     timer:send_interval(    ?CLEAN_DEAD_INTERVAL,        clean_dead),
-    timer:send_interval(?RUNTIME_UPDATE_INTERVAL,     eval_run_time),
+    timer:send_interval(?RUNTIME_UPDATE_INTERVAL,     eval_runtime),
     timer:send_after(demography:stop_time(Ruler),       runtime_end),
-    {ok, running, #s{
+    {ok, stopped, #s{ %Values are 0 to diferenciate from a restart
         size       = {  0,    demography:max_size(Ruler)},
-        run_time   = {  0,   demography:stop_time(Ruler)},
+        runtime    = {  0,   demography:stop_time(Ruler)},
         generation = {  0, demography:generations(Ruler)}, 
-        best_score = {0.0,      demography:target(Ruler)},   
+        score      = {0.0,      demography:target(Ruler)},   
         selection  = demography:selection(Ruler),
         agents     = #{},
         queue      = queue:new()
@@ -275,11 +289,21 @@ format_status(_Opt, [_PDict, _StateName, _State]) ->
 handle_event(enter, OldState, running, State) ->
     ?LOG_STATE_CHANGE(OldState),
     {next_state, running, State};
-handle_event(enter, OldState, stopped, State) ->
-    ?LOG_STATE_CHANGE(OldState),
+handle_event(enter, running, stopped, State) ->
+    ?LOG_STATE_CHANGE(running),
     [pop_sup:stop_agent(Id,get(sup))||Id<-maps:keys(State#s.agents)],
     print_stop_report(State),
+    save_population(State),
+    {next_state, stopped, State, {reply, State#s.from, ok}};
+handle_event(enter, stopped, stopped, State) ->
+    ?LOG_STATE_CHANGE(stopped),
     {next_state, stopped, State};
+%%--------------------------------------------------------------------
+%% Call requests
+%%--------------------------------------------------------------------
+handle_event({call, From}, run, stopped, State) ->
+    ?LOG_RUN_REQUEST_RECEIVED,
+    {next_state, running, State#s{from = From}};
 %%--------------------------------------------------------------------
 %% Cast requests
 %%--------------------------------------------------------------------
@@ -340,10 +364,10 @@ handle_event(internal, new,_StateName, State) ->
 %%--------------------------------------------------------------------
 %% Evaluation of new report results
 %%--------------------------------------------------------------------
-handle_event(info,     eval_run_time,_StateName, State) ->
+handle_event(info,     eval_runtime,_StateName, State) ->
     Elapsed = erlang:monotonic_time(millisecond) - get(start_time),
-    {_, Runtime_End} = State#s.run_time,
-    {keep_state, State#s{run_time = {Elapsed, Runtime_End}}};
+    {_, Runtime_End} = State#s.runtime,
+    {keep_state, State#s{runtime = {Elapsed, Runtime_End}}};
 handle_event(internal, eval_generation, running, State) ->
     case State#s.generation of
         {N, Max} when N< Max -> 
@@ -354,14 +378,14 @@ handle_event(internal, eval_generation, running, State) ->
 handle_event(internal, eval_generation,  stopped, State) ->
     {keep_state, State};
 handle_event(internal, {eval_score,S}, StateName, State) ->
-    case State#s.best_score of
+    case State#s.score of
         {B,_} when S<B -> 
             {keep_state, State};
         {_,T} when S<T -> 
-            {keep_state, State#s{best_score={S,T}}};
+            {keep_state, State#s{score={S,T}}};
         {_,T} -> 
             handle_event(internal, score_reached, 
-                         StateName, State#s{best_score={S,T}})
+                         StateName, State#s{score={S,T}})
     end;
 %%--------------------------------------------------------------------
 %% Events which would stop the population
@@ -442,9 +466,9 @@ update_pool(Id, OldScore, NewScore) ->
 update_population(State) -> 
     true = ets:update_element(?EV_POOL, get(id), [
         {      #population.size,       State#s.size},
-        {  #population.run_time,   State#s.run_time},
+        {   #population.runtime,    State#s.runtime},
         {#population.generation, State#s.generation},
-        {#population.best_score, State#s.best_score}
+        {     #population.score,      State#s.score}
     ]).
 
 % --------------------------------------------------------------------
@@ -461,12 +485,25 @@ clean_dead([], Agents) -> Agents.
 print_stop_report(State) -> 
     io:format([
         "Training stopped \n",
-        io_lib:format("\tRuning time:\t~p\n", [State#s.run_time]),
+        io_lib:format("\tRuning time:\t~p\n", [State#s.runtime]),
         io_lib:format("\tGenerations:\t~p\n", [State#s.generation]),
-        io_lib:format("\tBest score:\t~p\n",  [State#s.best_score]),
+        io_lib:format("\tBest score:\t~p\n",  [State#s.score]),
         io_lib:format("\ttop3 agents:\t~p\n", [top(get(spool), 3)])
     ]).
 
+% --------------------------------------------------------------------
+save_population(State) -> 
+    Id         = get(id),
+    Population = demography:edit(edb:read(Id), #{
+        max_size   => element(2, State#s.size),
+        runtime    => State#s.runtime,
+        generation => State#s.generation,
+        score      => State#s.score,
+        champion   => element(2, ets:last(get(spool))),
+        selection  => State#s.selection
+    }),
+    edb:write(Population).
+    
 
 %%====================================================================
 %% Eunit white box tests

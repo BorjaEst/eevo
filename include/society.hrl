@@ -48,7 +48,7 @@
 -define(add_score(Pid, Score), eevo:add_score(Pid, Score)).
 -define(end_agent(Pid), exit(Pid, normal)).
 
--define(time_limit(Milliseconds), [{run_time, Milliseconds}]).
+-define(time_limit(Milliseconds), [{runtime, Milliseconds}]).
 -define(agents_limit(N_Agents),   [{run_agents, N_Agents}]).
 -define(score_limit(Score),       [{run_score, Score}]).
 

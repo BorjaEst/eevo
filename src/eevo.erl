@@ -25,7 +25,7 @@
 -type rules()         :: ruler:properties().
 -type features()      :: agent:properties().
 -type summary()       :: #{Field :: info() => Value :: term()}.
--type info()          :: size | run_time | generation | best_score | 
+-type info()          :: size | runtime | generation | score | 
                          top3.
 
 
@@ -61,19 +61,27 @@ population(Properties) ->
     demography:id(Ruler).
 
 %%--------------------------------------------------------------------
-%% @doc Starts a population and its ruler
+%% @doc Starts and runs a population acording to some limits. 
 %% @end
 %%--------------------------------------------------------------------
--spec start(Population :: population_id() | rules()) ->
+-spec start(Population, Seeds) -> Population_Id when
+    Population    :: population_id() | rules(), 
+    Seeds         :: [agent:id()],
     Population_Id :: population_id().
-start(Rules) when is_map(Rules) ->
-    start(population(Rules));
-start(Population_Id) ->
-    ok = eevo_sup:start_population(Population_Id),
+start(Rules, Seeds) when is_map(Rules) ->
+    start(population(Rules), Seeds);
+
+start(Population_Id, Seeds) ->
+    case eevo_sup:start_population(Population_Id) of 
+        {   ok,                 Pid } -> Ruler = Pid;
+        {error,{already_started,Pid}} -> Ruler = Pid
+    end,
+    [ok = ruler:async_queue(Ruler,Id) || Id <- Seeds],
+    ok  = ruler:run(Ruler),
     Population_Id.
 
 %%--------------------------------------------------------------------
-%% @doc Stops a population, the ruler and all agents
+%% @doc Stops a population killing the the ruler and all agents.
 %% @end
 %%--------------------------------------------------------------------
 -spec stop(Population_Id :: population_id()) -> Result when
@@ -181,9 +189,9 @@ status(Population_Id) ->
 pop2status(Population) ->
     #{
         size       => Population#population.size,
-        run_time   => Population#population.run_time,
+        runtime    => Population#population.runtime,
         generation => Population#population.generation,
-        best_score => Population#population.best_score,
+        score      => Population#population.score,
         top3       => top(Population#population.id, 3)
     }.
 
