@@ -10,7 +10,7 @@
 -include_lib("society.hrl").
 
 %% API
--export([start_link/1, start_ruler/2, start_agent/3]).
+-export([start_link/1, start_ruler/2, start_agent/3, stop_agent/2]).
 
 %% Supervisor callbacks
 -export([init/1]).
@@ -45,14 +45,14 @@ start_link(Ruler_Id) ->
     supervisor:start_link(?MODULE, [Ruler_Id]).
 
 %%--------------------------------------------------------------------
-%% @doc Requests the supervisor to start a population supervisor
+%% @doc Requests the supervisor to start a population ruler.
 %% @end
 %%--------------------------------------------------------------------
 start_ruler(Supervisor, Ruler_id) ->
     supervisor:start_child(Supervisor, ?SPECS_RULER(Ruler_id)).
 
 %%--------------------------------------------------------------------
-%% @doc Requests the supervisor to terminate a population supervisor
+%% @doc Requests the supervisor to start an agent.
 %% @end
 %%--------------------------------------------------------------------
 start_agent(Id, Population_Id, Supervisor) ->
@@ -61,6 +61,14 @@ start_agent(Id, Population_Id, Supervisor) ->
         pid = Pid, agent_id = Id, 
         population_id = Population_Id}),
     {ok, Pid}.
+
+%%--------------------------------------------------------------------
+%% @doc Requests the supervisor to terminate an agent.
+%% @end
+%%--------------------------------------------------------------------
+stop_agent(Id, Supervisor) ->
+    supervisor:terminate_child(Supervisor, Id).
+
 
 %%%===================================================================
 %%% Supervisor callbacks
