@@ -15,9 +15,9 @@
 %% Supervisor callbacks
 -export([init/1]).
 
--define(SPECS_RULER(Ruler_id), #{
-    id       => Ruler_id,
-    start    => {ruler, start_link, []},
+-define(SPECS_RULER(Ruler_Id), #{
+    id       => Ruler_Id,
+    start    => {ruler, start_link, [Ruler_Id]},
     restart  => permanent,
     shutdown => 1000,
     modules  => [gen_server]
