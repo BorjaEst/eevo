@@ -18,10 +18,8 @@
 -export_type([id/0, property/0, properties/0]).
 
 %% gen_statem callbacks
--export([init/1, handle_call/3, handle_cast/2, handle_info/2, 
-         terminate/2, code_change/3]).
--export([stopped/3, running/3]).
-
+-export([init/1, format_status/2, handle_event/4, terminate/3, 
+         code_change/4, callback_mode/0]).
 
 -type id() :: {Ref :: reference(), ruler}.
 -type property()   :: id | max_size | stop_time | generations | 
@@ -209,7 +207,7 @@ init([Id, Supervisor]) ->
     timer:send_interval(    ?CLEAN_DEAD_INTERVAL,        clean_dead),
     timer:send_interval(?RUNTIME_UPDATE_INTERVAL,    update_runtime),
     timer:send_after(demography:stop_time(Ruler),       runtime_end),
-    {ok, #s{
+    {ok, running, #s{
         size       = {  0,    demography:max_size(Ruler)},
         run_time   = {  0,   demography:stop_time(Ruler)},
         generation = {  0, demography:generations(Ruler)}, 
@@ -222,118 +220,167 @@ init([Id, Supervisor]) ->
 
 %%--------------------------------------------------------------------
 %% @private
-%% @doc Handling call messages
-%% @spec handle_call(Request :: term(), From :: {pid(), Tag :: term()},
-%%                   State :: #state{}) ->
-%%                      {reply, Reply :: term(), NewState :: #state{}} |
-%%                      {reply, Reply :: term(), NewState :: #state{}, timeout() | hibernate} |
-%%                      {noreply, NewState :: #state{}} |
-%%                      {noreply, NewState :: #state{}, timeout() | hibernate} |
-%%                      {stop, Reason :: term(), Reply :: term(), NewState :: #state{}} |
-%%                      {stop, Reason :: term(), NewState :: #state{}}.
-%% handle_call(Request, _From, State) ->
-%%     ?LOG_WARNING("Unknown handle_call Population_Id ~p, request ~p", 
-%%                  [get(id), Request]),
-%%     {reply, {error, badrequest}, State}
+%% @doc
+%% This function is called by a gen_statem when it needs to find out 
+%% the callback mode of the callback module.
+%%
+%% @spec callback_mode() -> atom().
 %% @end
 %%--------------------------------------------------------------------
-handle_call(Request, _From, State) ->
-    ?LOG_WARNING(#{what=>"Unknown handle_call", pid=>self(),
-                   details => #{request => Request}}),
-    {reply, {error, badrequest}, State}.
+callback_mode() ->
+    [
+        handle_event_function,
+        state_enter
+    ].
 
 %%--------------------------------------------------------------------
 %% @private
 %% @doc
-%% Handling cast messages
+%% Called (1) whenever sys:get_status/1,2 is called by gen_statem or
+%% (2) when gen_statem terminates abnormally.
+%% This callback is optional.
 %%
-%% @spec(handle_cast(Request :: term(), State :: #state{}) ->
-%%     {noreply, NewState :: #state{}} |
-%%     {noreply, NewState :: #state{}, timeout() | hibernate} |
-%%     {stop, Reason :: term(), NewState :: #state{}}).
+%% @spec format_status(Opt, [PDict, StateName, State]) -> term()
 %% @end
 %%--------------------------------------------------------------------
-handle_cast({queue, Id}, State) ->
+format_status(_Opt, [_PDict, _StateName, _State]) ->
+    Status = some_term,
+    Status.
+
+%%--------------------------------------------------------------------
+%% @private
+%% @doc
+%%
+%% If callback_mode is handle_event_function, then whenever a
+%% gen_statem receives an event from call/2, cast/2, or as a normal
+%% process message, this function is called.
+%%
+%% @spec handle_event(Event, StateName, State) ->
+%%                   {next_state, NextStateName, NextState} |
+%%                   {next_state, NextStateName, NextState, Actions} |
+%%                   {stop, Reason, NewState} |
+%%                     stop |
+%%                   {stop, Reason :: term()} |
+%%                   {stop, Reason :: term(), NewData :: data()} |
+%%                   {stop_and_reply, Reason, Replies} |
+%%                   {stop_and_reply, Reason, Replies, NewState} |
+%%                   {keep_state, NewData :: data()} |
+%%                   {keep_state, NewState, Actions} |
+%%                   keep_state_and_data |
+%%                   {keep_state_and_data, Actions}
+%% @end
+%%--------------------------------------------------------------------
+handle_event(enter, OldState, running, State) ->
+    ?LOG_STATE_CHANGE(OldState),
+    {next_state, running, State};
+handle_event(enter, OldState, stopped, State) ->
+    ?LOG_STATE_CHANGE(OldState),
+    [pop_sup:stop_agent(Id,get(sup))||Id<-maps:keys(State#s.agents)],
+    print_stop_report(State),
+    {next_state, stopped, State};
+handle_event(cast, {queue, Id}, StateName, State) ->
     ?LOG_QUEUE_REQUEST_RECEIVED(Id, State#s.queue),
-    start_agent(State#s{
+    handle_event(internal, new, StateName, State#s{
         queue = queue:in(Id, State#s.queue)
     });
-handle_cast({kill, Id}, State) ->
+handle_event(internal, new, running,#s{size={S,M}}=State) when S<M ->
+    case queue:out(State#s.queue) of
+        {{value,Id}, Queue} -> Id = run_agent(Id);
+        {     empty, Queue} -> Id = run_mutated(State)
+    end,
+    {Generation, MaxGeneration} = State#s.generation,    
+    {keep_state, State#s{
+        size       = {         S+1,             M},
+        generation = {Generation+1, MaxGeneration},
+        agents     = maps:put(Id, ?INIT_SCORE, State#s.agents),
+        queue      = Queue
+    }};
+handle_event(internal, new,_StateName, State) ->
+    {keep_state, State};
+handle_event(cast,  {kill, Id},_StateName, State) ->
     ?LOG_KILL_REQUEST_RECEIVED(Id, State#s.agents),
     case pop_sup:stop_agent(Id, get(sup))of
-        ok                 -> {noreply, State};
-        {error, not_found} -> unknown_agent(Id, State)
+        ok                 -> keep_state_and_data;
+        {error, not_found} -> keep_state_and_data
     end;
-handle_cast({score, Id, Score}, State) ->
+handle_event(cast, {score, Id, Score}, StateName, State) ->
     ?LOG_SCORE_REQUEST_RECEIVED(Id, Score, State#s.agents),
     case maps:get(Id, State#s.agents, error) of
-        error    -> unknown_agent(Id, State);
-        OldScore -> score_agent(Id, OldScore, OldScore+Score, State)
+        error    -> 
+            handle_event(internal, {unknown, Id}, StateName, State);
+        OldScore -> 
+            NS = OldScore + Score,
+            update_pool(Id, OldScore, NS),
+            handle_event(internal,{eval_score,NS},StateName,State#s{
+                agents = maps:update(Id, NS, State#s.agents)
+            })
     end;
-handle_cast(Request, State) ->
-    ?LOG_WARNING(#{what=>"Unknown handle_cast", pid=>self(),
-                   details => #{request => Request}}),
-    {noreply, State}.
-
-%%--------------------------------------------------------------------
-%% @private
-%% @doc
-%% Handling all non call/cast messages
-%%
-%% @spec handle_info(Info, State) -> {noreply, State} |
-%%                                   {noreply, State, Timeout} |
-%%                                   {stop, Reason, State}
-%% @end
-%%--------------------------------------------------------------------
-handle_info({'DOWN', DownRef, process, Pid, _}, State) ->
-    ?LOG_AGENT_DOWN(DownRef, Pid),
-    {Size, Max_Size} = State#s.size,
-    eval_generation(State#s{
-        size = {Size-1, Max_Size}
-    });
-handle_info(update_runtime, State) ->
+handle_event(info,    update_runtime,_StateName, State) ->
     Elapsed = erlang:monotonic_time(millisecond) - get(start_time),
     {_, Runtime_End} = State#s.run_time,
-    {noreply, State#s{
-        run_time = {Elapsed, Runtime_End}
-    }};
-handle_info(update_population, State) ->
+    {keep_state, State#s{run_time = {Elapsed, Runtime_End}}};
+handle_event(info, update_population,_StateName, State) ->
     update_population(State),
-    {noreply, State};
-handle_info(clean_dead, State) ->
-    {noreply, State#s{
-        agents = clean_dead(State#s.agents)
-    }};
-handle_info(runtime_end, State) ->
-    training_end(runtime_end, State);  
-handle_info(Info, State) ->
-    ?LOG_WARNING(#{what=>"Unknown handle_info", pid=>self(),
-                   details => #{info  => Info}}),
-    {noreply, State}.
+    {keep_state, State};
+handle_event(info,        clean_dead,_StateName, State) ->
+    {keep_state, State#s{agents = clean_dead(State#s.agents)}};
+handle_event(info, {'DOWN',Ref,process,Pid,_}, StateName, State) ->
+    ?LOG_AGENT_DOWN(Ref, Pid),
+    {Size, Max_Size} = State#s.size,
+    handle_event(internal, eval_generation, StateName, State#s{
+        size = {Size-1, Max_Size}
+    });
+handle_event(internal, eval_generation,  running, State) ->
+    case State#s.generation of
+        {N, Max} when N< Max -> 
+            handle_event(internal, new, running, State);
+        {N, Max} when N>=Max -> 
+            handle_event(internal, last_generation, running, State)
+    end;
+handle_event(internal, eval_generation,  stopped, State) ->
+    {keep_state, State};
+handle_event(internal, {eval_score,S}, StateName, State) ->
+    case State#s.best_score of
+        {B,_} when S<B -> 
+            {keep_state, State};
+        {_,T} when S<T -> 
+            {keep_state, State#s{best_score={S,T}}};
+        {_,T} -> 
+            handle_event(internal, score_reached, 
+                         StateName, State#s{best_score={S,T}})
+    end;
+handle_event(info,         runtime_end, running, State) -> 
+    {next_state, stopped, State};
+handle_event(internal, last_generation, running, State) ->
+    {next_state, stopped, State};
+handle_event(internal,   score_reached, running, State) ->
+    {next_state, stopped, State};
+handle_event(internal, {unknown, Id},_StateName, State) ->
+    ?LOG_UNKNOWN_AGENT(Id, State#s.agents),
+    {keep_state, State};
+handle_event(EventType, EventContent, StateName, State) ->
+    ?LOG_WARNING(#{what => "Unknown event", pid=>self(),
+                   details => #{
+                       state  => StateName, 
+                       type   => EventType,
+                       content=> EventContent 
+    }}),
+    {keep_state, State}.
 
 %%--------------------------------------------------------------------
 %% @private
 %% @doc
 %% This function is called by a gen_statem when it is about to
 %% terminate. It should be the opposite of Module:init/1 and do any
-%% necessary cleaning up. When it returns, the gen_statem terminates
-%% with Reason. The return value is ignored.
+%% necessary cleaning up. When it returns, the gen_statem terminates with
+%% Reason. The return value is ignored.
 %%
-%% @spec terminate(Reason, State) -> void()
+%% @spec terminate(Reason, StateName, State) -> void()
 %% @end
 %%--------------------------------------------------------------------
--spec terminate(Reason :: (normal | shutdown | {shutdown, term()} | term()),
-                State :: #s{}) -> term().
-terminate(Reason, State) ->
+terminate(Reason, OldState, _State) ->
     ?LOG_INFO(#{what => "Ruler terminating", pid => self(), 
-                details => #{reason => Reason}}),
-    io:format([
-        "End of training \n",
-        io_lib:format("\tRuning time:\t~p\n", [State#s.run_time]),
-        io_lib:format("\tGenerations:\t~p\n", [State#s.generation]),
-        io_lib:format("\tBest score:\t~p\n",  [State#s.best_score]),
-        io_lib:format("\ttop3 agents:\t~p\n", [top(get(spool), 3)])
-    ]),
+                details => #{reason => Reason, state => OldState}}),
     ok.
 
 %%--------------------------------------------------------------------
@@ -341,54 +388,16 @@ terminate(Reason, State) ->
 %% @doc
 %% Convert process state when code is changed
 %%
-%% @spec code_change(OldVsn, State, Extra) -> {ok, NewState}
+%% @spec code_change(OldVsn, StateName, State, Extra) ->
+%%                   {ok, StateName, NewState}
 %% @end
 %%--------------------------------------------------------------------
--spec code_change(OldVsn :: term() | {down, term()}, State :: #s{},
-                  Extra :: term()) ->
-                     {ok, NewState :: #s{}} | {error, Reason :: term()}.
-code_change(_OldVsn, State, _Extra) ->
-    {ok, State}.
+code_change(_OldVsn, StateName, State, _Extra) ->
+    {ok, StateName, State}.
 
 %%%===================================================================
 %%% Internal functions
 %%%===================================================================
-
-% --------------------------------------------------------------------
-eval_generation(State) ->
-    case State#s.generation of
-        {N, Max} when N>=Max -> training_end(last_generation, State);
-        {N, Max} when N< Max -> start_agent(State)
-    end.
-
-% --------------------------------------------------------------------
-eval_best(Score, State) ->
-    case State#s.best_score of
-        {_,Target} when Score>=Target -> 
-            training_end(score_reached,State#s{
-                best_score={Score,Target}
-            });
-        {Best,_}   when Score< Best   -> 
-            {noreply, State};
-        {_,Target} -> 
-            {noreply, State#s{best_score = {Score, Target}}}
-    end.
-
-% --------------------------------------------------------------------
-start_agent(#s{size={Size,Max_Size}} = State) when Size<Max_Size ->
-    case queue:out(State#s.queue) of
-        {{value,Id}, Queue} -> Id = run_agent(Id);
-        {     empty, Queue} -> Id = run_mutated(State)
-    end,
-    {Generation, MaxGeneration} = State#s.generation,    
-    {noreply, State#s{
-        size       = {      Size+1,      Max_Size},
-        generation = {Generation+1, MaxGeneration},
-        agents     = maps:put(Id, ?INIT_SCORE, State#s.agents),
-        queue      = Queue
-    }};
-start_agent(State) ->
-    {noreply, State}.
 
 % --------------------------------------------------------------------
 run_agent(Id) -> 
@@ -404,22 +413,10 @@ run_mutated(State) ->
     run_agent(Id).
 
 % --------------------------------------------------------------------
-score_agent(Id, OldScore, NewScore, State) -> 
-    update_pool(Id, OldScore, NewScore),
-    eval_best(NewScore, State#s{
-        agents = maps:update(Id, NewScore, State#s.agents)
-    }).
-
-% --------------------------------------------------------------------
 update_pool(Id, OldScore, NewScore) -> 
     Score_Pool = get(spool),
     true = ets:delete(Score_Pool, {OldScore, Id}),
     true = ets:insert(Score_Pool, {{NewScore, Id}}).
-
-% --------------------------------------------------------------------
-unknown_agent(Id, State) -> 
-    ?LOG_UNKNOWN_AGENT(Id, State#s.agents),
-    {noreply, State}.
 
 % --------------------------------------------------------------------
 update_population(State) -> 
@@ -440,13 +437,15 @@ clean_dead([Id | Rest], Agents) ->
     clean_dead(Rest, maps:remove(Id, Agents));
 clean_dead([], Agents) -> Agents.
 
-
-
 % --------------------------------------------------------------------
-training_end(Reason, State) -> 
-    io:format("Population ~p stop: ~p ~n", [get(id), Reason]),
-    {stop, normal, State}.  
-
+print_stop_report(State) -> 
+    io:format([
+        "Training stopped \n",
+        io_lib:format("\tRuning time:\t~p\n", [State#s.run_time]),
+        io_lib:format("\tGenerations:\t~p\n", [State#s.generation]),
+        io_lib:format("\tBest score:\t~p\n",  [State#s.best_score]),
+        io_lib:format("\ttop3 agents:\t~p\n", [top(get(spool), 3)])
+    ]).
 
 
 %%====================================================================
