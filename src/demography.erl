@@ -212,8 +212,8 @@ tree(_Other) -> [].
 %% @doc Returns the population maximum size allowed by the ruler.
 %% @end
 %%--------------------------------------------------------------------
--spec max_sixe(Ruler :: ruler()) -> Max_Size :: integer().
-max_sixe(Ruler) when is_record(Ruler, ruler) -> Ruler#ruler.max_size.
+-spec max_size(Ruler :: ruler()) -> Max_Size :: integer().
+max_size(Ruler) when is_record(Ruler, ruler) -> Ruler#ruler.max_size.
 
 %%--------------------------------------------------------------------
 %% @doc Returns the maximum running time allowed in milliseconds.
