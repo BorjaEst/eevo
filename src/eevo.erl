@@ -120,20 +120,20 @@ kill(Population_Id, Agent_Id) ->
 %% @doc Add a score value to an agent id. The call is asynchronous.
 %% @end
 %%--------------------------------------------------------------------
--spec add_score(Pid, Score) -> ok when
+-spec score(Pid, Score) -> ok when
     Pid   :: population_id(),
     Score :: float().
-add_score(Pid, Score) ->
+score(Pid, Score) ->
     [DNI] = ets:lookup(?AGENTS_POOL, Pid),
-    add_score(DNI#dni.population_id, DNI#dni.agent_id, Score).
+    score(DNI#dni.population_id, DNI#dni.agent_id, Score).
 
--spec add_score(Population_Id, Agent_Id, Score) -> ok when
+-spec score(Population_Id, Agent_Id, Score) -> ok when
     Population_Id :: population_id(),
     Agent_Id      :: agent_id(),
     Score          :: float().
-add_score(Population_Id, Agent_Id, Score) ->
+score(Population_Id, Agent_Id, Score) ->
     Ruler = ruler_pid(Population_Id),
-    ruler:add_score(Ruler, Agent_Id, Score).
+    ruler:score(Ruler, Agent_Id, Score).
 
 %%--------------------------------------------------------------------
 %% @doc Returns the ETS with the score table managed by a ruler.
