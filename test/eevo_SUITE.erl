@@ -35,7 +35,7 @@
 %% Info = [tuple()]
 %%--------------------------------------------------------------------
 suite() ->
-    [{timetrap, {seconds, 5}}].
+    [{timetrap, {seconds, 8}}].
 
 %%--------------------------------------------------------------------
 %% Function: init_per_suite(Config0) ->
@@ -109,11 +109,15 @@ end_per_testcase(_TestCase, _Config) ->
 groups() ->
     [
         {tests_for_multiple_populations, [parallel, shuffle],
-         [single_population_and_run || _ <- ?SEQ(?PARALLEL_POPULATIONS)]},
+         [simple_population || _ <- ?SEQ(?PARALLEL_POPULATIONS)]
+        },
         {tests_with_limits, [],
-         [test_with_time_limit,
-          test_with_agents_limit,
-          test_with_score_limit]}
+         [
+            % test_with_time_limit,
+            % test_with_agents_limit,
+            test_with_score_limit
+         ]
+        }
     ].
 
 %%--------------------------------------------------------------------
@@ -125,9 +129,9 @@ groups() ->
 %%--------------------------------------------------------------------
 all() ->
     [
-        {group, tests_for_multiple_populations},
+        % {group, tests_for_multiple_populations},
         {group, tests_with_limits},
-        single_population_and_run  % GROUPS CANNOT BE DEBUGGED
+        simple_population  % GROUPS CANNOT BE DEBUGGED
     ].
 
 %%--------------------------------------------------------------------
@@ -152,85 +156,62 @@ my_test_case_example(_Config) ->
 % TESTS --------------------------------------------------------------
 
 % --------------------------------------------------------------------
-single_population_and_run() ->
+simple_population() ->
     [].
-single_population_and_run(_Config) ->
-    {ok, Population_Id} = correct_population_generation(),
-    {ok, Agents_Ids} = correct_agents_generation(?PARALLEL_AGENTS),
-    {ok, _Gov_PId} = correct_start(Population_Id),
+simple_population(_Config) ->
+    Population = test_populations:n5_infinity(),
+    Agents = [test_agents:random_score()||_<-?SEQ(?PARALLEL_AGENTS)],
+    ok = test_population(Population, Agents).
+
+
+% --------------------------------------------------------------------
+test_with_time_limit() ->
+    [].
+test_with_time_limit(_Config) ->
+    Population = test_populations:n5_1000ms(),
+    Agents = [test_agents:random_score()||_<-?SEQ(?PARALLEL_AGENTS)],
+    ok = test_population(Population, Agents).
+
+% --------------------------------------------------------------------
+test_with_agents_limit() ->
+    [].
+test_with_agents_limit(_Config) ->
+    Population = test_populations:n5_10generations(),
+    Agents = [test_agents:random_score()||_<-?SEQ(?PARALLEL_AGENTS)],
+    ok = test_population(Population, Agents).
+
+% --------------------------------------------------------------------
+test_with_score_limit() ->
+    [].
+test_with_score_limit(_Config) ->
+    Population = test_populations:n5_1000points(),
+    Agents = [test_agents:random_score()||_<-?SEQ(?PARALLEL_AGENTS)],
+    ok = test_population(Population, Agents).
+
+
+% --------------------------------------------------------------------
+% SPECIFIC HELPER FUNCTIONS ------------------------------------------
+
+% ....................................................................
+test_population(Population, Agents) ->
+    {ok, Population_Id} = correct_population_generation(Population),
+    {ok,    Agents_Ids} = correct_agents_generation(Agents),
+    ok = correct_start(Population_Id),
     ok = correct_agents_addition(Population_Id, Agents_Ids),
     ok = correct_population_evolution(Population_Id),
     ok = correct_stop(Population_Id),
     ok.
 
 % --------------------------------------------------------------------
-test_with_time_limit() ->
-    [].
-test_with_time_limit(_Config) ->
-    ?HEAD("Correct population creation with time limit ............"),
-    Test_Agent_Id = eevo:agent(
-        _Module = test_agent, % Module where the gen_agent is implemented
-        _AgentProperties = test_agents:properties_example(),
-        _MutationF = fun test_agents:mutationF_example/1),
-    Population_Id = eevo:population(?time_limit(?TEST_POP_TIME_LIMIT)),
-    {ok, Gov_PId} = eevo:start(Population_Id),
-    ok = eevo:add(Population_Id, Test_Agent_Id),
-    timer:sleep(?TEST_POP_TIME_LIMIT),
-    PopRun_Result = receive {run_end, Population_Id, Result} -> Result after 10 -> error(my_timeout) end,
-    timer:sleep(40),
-    false = is_process_alive(Gov_PId),
-    ?END(PopRun_Result).
-
-% --------------------------------------------------------------------
-test_with_agents_limit() ->
-    [].
-test_with_agents_limit(_Config) ->
-    ?HEAD("Correct population creation with agents limit .........."),
-    Test_Agent_Id = eevo:agent(
-        _Module = test_agent, % Module where the gen_agent is implemented
-        _AgentProperties = test_agents:properties_example(),
-        _MutationF = fun test_agents:mutationF_example/1),
-    Population_Id = eevo:population(?agents_limit(?TEST_POP_AGENTS_LIMIT)),
-    {ok, Gov_PId} = eevo:start(Population_Id),
-    ok = eevo:add(Population_Id, Test_Agent_Id),
-    timer:sleep(1000),
-    PopRun_Result = receive {run_end, Population_Id, Result} -> Result after 10 -> error(my_timeout) end,
-    timer:sleep(40),
-    false = is_process_alive(Gov_PId),
-    ?END(PopRun_Result).
-
-% --------------------------------------------------------------------
-test_with_score_limit() ->
-    [].
-test_with_score_limit(_Config) ->
-    ?HEAD("Correct population creation with score limit ..........."),
-    Test_Agent_Id = eevo:agent(
-        _Module = test_agent, % Module where the gen_agent is implemented
-        _AgentProperties = test_agents:properties_example(),
-        _MutationF = fun test_agents:mutationF_example/1),
-    Population_Id = eevo:population(?score_limit(?TEST_POP_SCORE_LIMIT)),
-    {ok, Gov_PId} = eevo:start(Population_Id),
-    ok = eevo:add(Population_Id, Test_Agent_Id),
-    timer:sleep(1000),
-    PopRun_Result = receive {run_end, Population_Id, Result} -> Result after 10 -> error(my_timeout) end,
-    timer:sleep(40),
-    false = is_process_alive(Gov_PId),
-    ?END(PopRun_Result).
-
-
-% --------------------------------------------------------------------
-% SPECIFIC HELPER FUNCTIONS ------------------------------------------
-
-% --------------------------------------------------------------------
-correct_population_generation() ->
+correct_population_generation(Population) ->
     ?HEAD("Correct generation of a population ....................."),
-    Population_Id = eevo:population(test_populations:n5_1000ms()),
+    Population_Id = eevo:population(Population),
     ?END({ok, Population_Id}).
 
 % --------------------------------------------------------------------
-correct_agents_generation(N) ->
+correct_agents_generation(Agents) ->
     ?HEAD("Correct generation of an agents ........................"),
-    Agents_Id = [eevo:agent(test_agents:random_score()) || _<-?SEQ(N)],
+    Agents_Id = [eevo:agent(Agent) || Agent <- Agents],
     ?END({ok, Agents_Id}).
 
 % --------------------------------------------------------------------
@@ -243,10 +224,10 @@ correct_start(Population_Id) ->
 correct_agents_addition(Population_Id, Agents_Id) ->
     ?HEAD("Correct addition of multiple agents ...................."),
     [ok = eevo:add(Population_Id, Id) || Id <- Agents_Id],
-    timer:sleep(100), ?INFO("Agents ids:", Agents_Id),
-    PoolList = ets:tab2list(eevo:top(Population_Id, 100)), 
-    ?INFO("Pool list after 100ms:", PoolList),
-    L = length([A1 || {_,A2} <- PoolList, A1 <- Agents_Id, A1 == A2]),
+    timer:sleep(200), ?INFO("Agents ids:", Agents_Id),
+    PoolList = ets:tab2list(eevo:score_pool(Population_Id)), 
+    ?INFO("Pool list after 200ms:", PoolList),
+    L = length([A1 || {{_,A2}}<-PoolList, A1<-Agents_Id, A1==A2]),
     L = length(Agents_Id),
     ?END(ok).
 
