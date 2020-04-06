@@ -24,6 +24,9 @@
 -type agent_id()      :: agent:id().
 -type rules()         :: ruler:properties().
 -type features()      :: agent:properties().
+-type summary()       :: #{Field :: info() => Value :: term()}.
+-type info()          :: size | run_time | generation | best_score | 
+                         top3.
 
 
 %%%===================================================================
@@ -161,6 +164,28 @@ top(Population_Id, N) ->
     [{Agent_Id :: agent_id(), Score :: float()}].
 bottom(Population_Id, N) ->
     ruler:bottom(score_pool(Population_Id), N).
+
+
+%%--------------------------------------------------------------------
+%% @doc Returns status of a population id.
+%% @end
+%%--------------------------------------------------------------------
+-spec status(Population_Id :: population_id()) ->
+    Status :: summary().
+status(Population_Id) ->
+    case ets:lookup(?EV_POOL, Population_Id) of 
+        [Population] -> pop2status(Population);
+        []           -> {error, not_found}
+    end.
+
+pop2status(Population) ->
+    #{
+        size       => Population#population.size,
+        run_time   => Population#population.run_time,
+        generation => Population#population.generation,
+        best_score => Population#population.best_score,
+        top3       => top(Population#population.id, 3)
+    }.
 
 %%--------------------------------------------------------------------
 %% @doc Returns the genealogical tree of an agent.

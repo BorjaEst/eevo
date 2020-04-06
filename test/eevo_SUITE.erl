@@ -160,8 +160,9 @@ simple_population() ->
     [].
 simple_population(_Config) ->
     Population = test_populations:n5_infinity(),
-    Agents = [test_agents:random_score()||_<-?SEQ(?PARALLEL_AGENTS)],
-    ok = test_population(Population, Agents).
+    Agents   = [test_agents:random_score()||_<-?SEQ(?PARALLEL_AGENTS)],
+    _Results = test_population(Population, Agents),
+    ok.
 
 
 % --------------------------------------------------------------------
@@ -169,24 +170,27 @@ test_with_time_limit() ->
     [].
 test_with_time_limit(_Config) ->
     Population = test_populations:n5_1000ms(),
-    Agents = [test_agents:random_score()||_<-?SEQ(?PARALLEL_AGENTS)],
-    ok = test_population(Population, Agents).
+    Agents  = [test_agents:random_score()||_<-?SEQ(?PARALLEL_AGENTS)],
+    Results = test_population(Population, Agents),
+    print_results(Results).
 
 % --------------------------------------------------------------------
 test_with_agents_limit() ->
     [].
 test_with_agents_limit(_Config) ->
     Population = test_populations:n5_10generations(),
-    Agents = [test_agents:random_score()||_<-?SEQ(?PARALLEL_AGENTS)],
-    ok = test_population(Population, Agents).
+    Agents  = [test_agents:random_score()||_<-?SEQ(?PARALLEL_AGENTS)],
+    Results = test_population(Population, Agents),
+    print_results(Results).
 
 % --------------------------------------------------------------------
 test_with_score_limit() ->
     [].
 test_with_score_limit(_Config) ->
     Population = test_populations:n5_1000points(),
-    Agents = [test_agents:random_score()||_<-?SEQ(?PARALLEL_AGENTS)],
-    ok = test_population(Population, Agents).
+    Agents  = [test_agents:random_score()||_<-?SEQ(?PARALLEL_AGENTS)],
+    Results = test_population(Population, Agents),
+    print_results(Results).
 
 
 % --------------------------------------------------------------------
@@ -199,8 +203,9 @@ test_population(Population, Agents) ->
     ok = correct_start(Population_Id),
     ok = correct_agents_addition(Population_Id, Agents_Ids),
     ok = correct_population_evolution(Population_Id),
+    {ok, Results} = collect_results(Population_Id),
     ok = correct_stop(Population_Id),
-    ok.
+    Results.
 
 % --------------------------------------------------------------------
 correct_population_generation(Population) ->
@@ -242,14 +247,31 @@ correct_population_evolution(Population_Id) ->
     true = Top20_1 /= Top20_2,
     ?END(ok).
 
+
+% -------------------------------------------------------------------
+collect_results(Population_Id) -> 
+    Status = eevo:status(Population_Id),
+    {ok, Status}. 
+
 % -------------------------------------------------------------------
 correct_stop(Population_Id) ->
     ?HEAD("The population is correctly killed ....................."),
     ok = eevo:stop(Population_Id),
     ?END(ok).
 
-
-
-
-
+% -------------------------------------------------------------------
+print_results(Results) -> 
+    #{
+        run_time   := RunTime,
+        generation := Generation,
+        best_score := BestScore,
+        top3       := Top3
+    } = Results,
+    ct:print([
+        "Training stopped \n",
+        io_lib:format("\tRuning time:\t~p\n", [RunTime]),
+        io_lib:format("\tGenerations:\t~p\n", [Generation]),
+        io_lib:format("\tBest score:\t~p\n",  [BestScore]),
+        io_lib:format("\ttop3 agents:\t~p\n", [Top3])
+    ]).
 
