@@ -41,10 +41,9 @@
     generation :: {Current :: integer(), End :: integer()}, 
     best_score :: {Current ::   float(), End ::   float()},   
     selection  :: selection:func(),
-    agents     :: #{Agent_Id  :: agent:id()  => Info :: info()},
+    agents     :: #{Agent_Id :: agent:id() => Score :: number()},
     queue      :: queue:queua()
  }).
--type info() :: {Score :: float(), Pid :: pid()}.
 
 -define(LOG_QUEUE_REQUEST_RECEIVED(Id, Queue),
     ?LOG_DEBUG(#{what => "Received cast queue request", pid=>self(),
@@ -253,21 +252,15 @@ handle_cast({queue, Id}, State) ->
     });
 handle_cast({kill, Id}, State) ->
     ?LOG_KILL_REQUEST_RECEIVED(Id, State#s.agents),
-    case maps:get(Id, State#s.agents, error) of
-        {_, Pid} -> 
-            exit(Pid, shutdown), 
-            {noreply, State};
-        error    -> 
-            unknown_agent(Id, State)
+    case pop_sup:stop_agent(Id, get(sup))of
+        ok                 -> {noreply, State};
+        {error, not_found} -> unknown_agent(Id, State)
     end;
 handle_cast({score, Id, Score}, State) ->
     ?LOG_SCORE_REQUEST_RECEIVED(Id, Score, State#s.agents),
-    Agents = State#s.agents,
-    case maps:get(Id, Agents, error) of
-        {OldScore, Pid} ->
-            score_agent(Id, OldScore, Pid, Score, State);
-        error           -> 
-            unknown_agent(Id, State)
+    case maps:get(Id, State#s.agents, error) of
+        error    -> unknown_agent(Id, State);
+        OldScore -> score_agent(Id, OldScore, OldScore+Score, State)
     end;
 handle_cast(Request, State) ->
     ?LOG_WARNING(#{what=>"Unknown handle_cast", pid=>self(),
@@ -399,11 +392,10 @@ run_mutated(State) ->
     run_agent(Id).
 
 % --------------------------------------------------------------------
-score_agent(Id, OldScore, Pid, Score, State) -> 
-    NewScore = OldScore + Score, 
+score_agent(Id, OldScore, NewScore, State) -> 
     update_pool(Id, OldScore, NewScore),
     eval_best(NewScore, State#s{
-        agents = maps:update(Id, {NewScore, Pid}, State#s.agents)
+        agents = maps:update(Id, NewScore, State#s.agents)
     }).
 
 % --------------------------------------------------------------------
@@ -428,15 +420,12 @@ update_population(State) ->
 
 % --------------------------------------------------------------------
 clean_dead(Agents) -> 
-    To_Clean = put(agents, maps:keys(Agents)),
-    clean_dead(To_Clean, Agents).
+    Previous = put(agents, maps:keys(Agents)),
+    Running  = [Id||{Id,_,_,_}<-supervisor:which_children(get(sup))],
+    clean_dead(Previous -- Running, Agents).
 
 clean_dead([Id | Rest], Agents) -> 
-    {_, Pid} = maps:get(Id, Agents),
-    Agents = case is_process_alive(Pid) of
-        true  -> clean_dead(Rest, Agents);
-        false -> clean_dead(maps:remove(Id, Agents))
-    end;
+    clean_dead(Rest, maps:remove(Id, Agents));
 clean_dead([], Agents) -> Agents.
 
 
