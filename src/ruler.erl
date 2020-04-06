@@ -197,7 +197,7 @@ init([Id, Supervisor]) ->
     ]),
     process_flag(trap_exit, true),
     ?LOG_INFO("Population_Id:~p initiated", [Id]),
-    self() ! update_pool, % Request to update pool after start
+    self() ! update_population, % Request to update pool after start
     timer:send_interval(   ?POOL_UPDATE_INTERVAL, update_population),
     timer:send_interval(    ?CLEAN_DEAD_INTERVAL,        clean_dead),
     timer:send_interval(?RUNTIME_UPDATE_INTERVAL,    update_runtime),
@@ -419,10 +419,10 @@ unknown_agent(Id, State) ->
 % --------------------------------------------------------------------
 update_population(State) -> 
     true = ets:update_element(?EV_POOL, get(id), [
-        {      size,       State#s.size},
-        {  run_time,   State#s.run_time},
-        {generation, State#s.generation},
-        {best_score, State#s.best_score}
+        {      #s.size,       State#s.size},
+        {  #s.run_time,   State#s.run_time},
+        {#s.generation, State#s.generation},
+        {#s.best_score, State#s.best_score}
     ]).
 
 % --------------------------------------------------------------------
