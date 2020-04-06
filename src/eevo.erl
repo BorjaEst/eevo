@@ -66,7 +66,7 @@ population(Properties) ->
 start(Rules) when is_map(Rules) ->
     start(population(Rules));
 start(Population_Id) ->
-    ok = eevo_sup:start(Population_Id),
+    ok = eevo_sup:start_population(Population_Id),
     Population_Id.
 
 %%--------------------------------------------------------------------
@@ -77,7 +77,7 @@ start(Population_Id) ->
       Result :: 'ok' | {'error', Error},
       Error :: 'not_found' | 'simple_one_for_one'.
 stop(Population_Id) ->
-    eevo_sup:stop(Population_Id).
+    eevo_sup:stop_population(Population_Id).
 
 %%--------------------------------------------------------------------
 %% @doc Creates a new population in the eevo database.
