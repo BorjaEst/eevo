@@ -387,7 +387,7 @@ start_agent(State) ->
 
 % --------------------------------------------------------------------
 run_agent(Id) -> 
-    {ok, Pid} = pop_sup:start_agent(get(sup), Id),
+    {ok, Pid} = pop_sup:start_agent(Id, get(id), get(sup)),
     erlang:monitor(process, Pid),
     Id.
 

@@ -10,7 +10,7 @@
 -include_lib("society.hrl").
 
 %% API
--export([start_link/1, start_ruler/2, start_agent/2]).
+-export([start_link/1, start_ruler/2, start_agent/3]).
 
 %% Supervisor callbacks
 -export([init/1]).
@@ -55,12 +55,11 @@ start_ruler(Supervisor, Ruler_id) ->
 %% @doc Requests the supervisor to terminate a population supervisor
 %% @end
 %%--------------------------------------------------------------------
-start_agent(Id, Population) ->
-    Supervisor = Population#population.supervisor, 
+start_agent(Id, Population_Id, Supervisor) ->
     {ok, Pid} = supervisor:start_child(Supervisor, ?SPECS_AGENT(Id)),
     true = ets:insert(?AGENTS_POOL, #dni{
         pid = Pid, agent_id = Id, 
-        population_id = Population#population.id}),
+        population_id = Population_Id}),
     ok.
 
 %%%===================================================================
