@@ -18,7 +18,7 @@
 -define(SPECS_RULER(Ruler_Id), #{
     id       => Ruler_Id,
     start    => {ruler, start_link, [Ruler_Id]},
-    restart  => permanent,
+    restart  => transient,
     shutdown => 1000,
     modules  => [gen_server]
 }).

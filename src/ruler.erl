@@ -297,7 +297,7 @@ handle_info(clean_dead, State) ->
         agents = clean_dead(State#s.agents)
     }};
 handle_info(runtime_end, State) ->
-    {stop, runtime_end, State};    
+    training_end(runtime_end, State);  
 handle_info(Info, State) ->
     ?LOG_WARNING(#{what=>"Unknown handle_info", pid=>self(),
                    details => #{info  => Info}}),
@@ -320,11 +320,11 @@ terminate(Reason, State) ->
     ?LOG_INFO(#{what => "Ruler terminating", pid => self(), 
                 details => #{reason => Reason}}),
     io:format([
-        "End of training ~n",
-        io_lib:format("\tRuning time:\t~p~n", [State#s.run_time]),
-        io_lib:format("\tGenerations:\t~p~n", [State#s.generation]),
-        io_lib:format("\tBest score:\t~p~n",  [State#s.best_score]),
-        io_lib:format("\ttop3 agents:\t~p~n", [top(get(spool), 3)])
+        "End of training \n",
+        io_lib:format("\tRuning time:\t~p\n", [State#s.run_time]),
+        io_lib:format("\tGenerations:\t~p\n", [State#s.generation]),
+        io_lib:format("\tBest score:\t~p\n",  [State#s.best_score]),
+        io_lib:format("\ttop3 agents:\t~p\n", [top(get(spool), 3)])
     ]),
     ok.
 
@@ -349,15 +349,17 @@ code_change(_OldVsn, State, _Extra) ->
 % --------------------------------------------------------------------
 eval_generation(State) ->
     case State#s.generation of
-        {N, Max} when N >= Max -> {stop, last_generation, State};
-        {N, Max} when N <  Max -> start_agent(State)
+        {N, Max} when N>=Max -> training_end(last_generation, State);
+        {N, Max} when N< Max -> start_agent(State)
     end.
 
 % --------------------------------------------------------------------
 eval_best(Score, State) ->
     case State#s.best_score of
         {_,Target} when Score>=Target -> 
-            {stop,score_reached,State#s{best_score={Score,Target}}};
+            training_end(score_reached,State#s{
+                best_score={Score,Target}
+            });
         {Best,_}   when Score< Best   -> 
             {noreply, State};
         {_,Target} -> 
@@ -429,6 +431,14 @@ clean_dead(Agents) ->
 clean_dead([Id | Rest], Agents) -> 
     clean_dead(Rest, maps:remove(Id, Agents));
 clean_dead([], Agents) -> Agents.
+
+
+
+% --------------------------------------------------------------------
+training_end(Reason, State) -> 
+    io:format("Population ~p stop: ~p ~n", [get(id), Reason]),
+    {stop, normal, State}.  
+
 
 
 %%====================================================================
