@@ -181,7 +181,7 @@ tree(Agent_Id) ->
     Child_Id:: agent_id().
 mutate(Agent_Id) ->
     Agent = edb:read(Agent_Id),
-    Child = demography:muate_agent(Agent),
+    Child = demography:mutate_agent(Agent),
     edb:write(Child),
     demography:id(Child).
 
