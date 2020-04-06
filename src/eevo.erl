@@ -89,7 +89,9 @@ stop(Population_Id) ->
       Features :: features(),
       Agent_Id :: agent_id().
 agent(Features) ->
-    demography:agent(Features).
+    Agent = demography:agent(Features),
+    edb:write(Agent),
+    demography:id(Agent).
 
 %%--------------------------------------------------------------------
 %% @doc Requests a population ruler to add an agent into its 
