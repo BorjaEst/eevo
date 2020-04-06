@@ -113,8 +113,8 @@ groups() ->
         },
         {tests_with_limits, [],
          [
-            % test_with_time_limit,
-            % test_with_agents_limit,
+            test_with_time_limit,
+            test_with_agents_limit,
             test_with_score_limit
          ]
         }
@@ -129,7 +129,7 @@ groups() ->
 %%--------------------------------------------------------------------
 all() ->
     [
-        % {group, tests_for_multiple_populations},
+        {group, tests_for_multiple_populations},
         {group, tests_with_limits},
         simple_population  % GROUPS CANNOT BE DEBUGGED
     ].
@@ -234,12 +234,12 @@ correct_agents_addition(Population_Id, Agents_Id) ->
 % --------------------------------------------------------------------
 correct_population_evolution(Population_Id) ->
     ?HEAD("Correct population evolution ..........................."),
-    Top5_1 = eevo:top(Population_Id, 5),
-    ?INFO("Top5 after some ms", Top5_1),
-    timer:sleep(200),
-    Top5_2 = eevo:top(Population_Id, 5),
-    ?INFO("Top5 after some ms", Top5_2),
-    true = Top5_1 /= Top5_2,
+    Top20_1 = eevo:top(Population_Id, 20),
+    ?INFO("Top20 after some ms", Top20_1),
+    timer:sleep(100),
+    Top20_2 = eevo:top(Population_Id, 20),
+    ?INFO("Top20 after some ms", Top20_2),
+    true = Top20_1 /= Top20_2,
     ?END(ok).
 
 % -------------------------------------------------------------------
