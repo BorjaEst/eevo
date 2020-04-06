@@ -356,8 +356,10 @@ eval_generation(State) ->
 % --------------------------------------------------------------------
 eval_best(Score, State) ->
     case State#s.best_score of
-        {_,Target} when Score>=Target -> {stop,score_reached,State};
-        {Best,_}   when Score< Best   -> {noreply, State};
+        {_,Target} when Score>=Target -> 
+            {stop,score_reached,State#s{best_score={Score,Target}}};
+        {Best,_}   when Score< Best   -> 
+            {noreply, State};
         {_,Target} -> 
             {noreply, State#s{best_score = {Score, Target}}}
     end.
