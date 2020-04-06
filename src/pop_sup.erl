@@ -60,7 +60,7 @@ start_agent(Id, Population_Id, Supervisor) ->
     true = ets:insert(?AGENTS_POOL, #dni{
         pid = Pid, agent_id = Id, 
         population_id = Population_Id}),
-    ok.
+    {ok, Pid}.
 
 %%%===================================================================
 %%% Supervisor callbacks
