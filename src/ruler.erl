@@ -11,15 +11,17 @@
 -include_lib("kernel/include/logger.hrl").
 -include_lib("society.hrl").
 
--behaviour(gen_server).
+-behaviour(gen_statem).
 
 %% API
 %%-export([start_link/0]).
 -export_type([id/0, property/0, properties/0]).
 
-%% gen_server callbacks
+%% gen_statem callbacks
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, 
          terminate/2, code_change/3]).
+-export([stopped/3, running/3]).
+
 
 -type id() :: {Ref :: reference(), ruler}.
 -type property()   :: id | max_size | stop_time | generations | 
@@ -45,6 +47,12 @@
     queue      :: queue:queua()
  }).
 
+-define(LOG_STATE_CHANGE(OldState),
+    ?LOG_INFO(#{what => "Ruler state has changed", 
+                pid=>self(), id => get(id), details => #{
+                    state_new=>?FUNCTION_NAME, old_state=>OldState}},
+              #{logger_formatter=>#{title=>"RULER STATE"}})
+).
 -define(LOG_QUEUE_REQUEST_RECEIVED(Id, Queue),
     ?LOG_DEBUG(#{what => "Received cast queue request", pid=>self(),
                  details => #{id => Id, queue => Queue}},
@@ -97,9 +105,9 @@ new(Properties) ->
 %% @doc Starts the population ruler.
 %% @end
 %%--------------------------------------------------------------------
--spec start_link(Ruler_Id :: id()) -> gen_server:start_ret().
+-spec start_link(Ruler_Id :: id()) -> gen_statem:start_ret().
 start_link(Ruler_Id) ->
-    gen_server:start_link(?MODULE, [Ruler_Id, self()], []).
+    gen_statem:start_link(?MODULE, [Ruler_Id, self()], []).
 
 %%--------------------------------------------------------------------
 %% @doc Request the agent addition to the population. Asynchronous.
@@ -108,7 +116,7 @@ start_link(Ruler_Id) ->
 -spec async_queue(Ruler :: pid(), Agent_Id :: agent:id()) ->
     ok.
 async_queue(Ruler, Agent_Id) ->
-    gen_server:cast(Ruler, {queue, Agent_Id}).
+    gen_statem:cast(Ruler, {queue, Agent_Id}).
 
 %%--------------------------------------------------------------------
 %% @doc Request the kill of an agent. Asynchronous.
@@ -117,7 +125,7 @@ async_queue(Ruler, Agent_Id) ->
 -spec async_kill(Ruler :: pid(), Agent_Id :: agent:id()) ->
     ok.
 async_kill(Ruler, Agent_Id) ->
-    gen_server:cast(Ruler, {kill, Agent_Id}).
+    gen_statem:cast(Ruler, {kill, Agent_Id}).
 
 %%--------------------------------------------------------------------
 %% @doc Adds a score to an agent. Asynchronous.
@@ -128,7 +136,7 @@ async_kill(Ruler, Agent_Id) ->
     Agent_Id :: agent:id(), 
     Score    :: float().
 score(Ruler, Agent_Id, Score) ->
-    gen_server:cast(Ruler, {score, Agent_Id, Score}).
+    gen_statem:cast(Ruler, {score, Agent_Id, Score}).
 
 %%--------------------------------------------------------------------
 %% @doc Returns the score pool ets table id.
@@ -166,14 +174,14 @@ first_n(_Pool,     _ScoreAgent,_N)            -> [].
 
 
 %%%===================================================================
-%%% gen_server callbacks
+%%% gen_statem callbacks
 %%%===================================================================
 
 %%--------------------------------------------------------------------
 %% @private
 %% @doc
-%% Whenever a gen_server is started using gen_server:start/[3,4] or
-%% gen_server:start_link/[3,4], this function is called by the new
+%% Whenever a gen_statem is started using gen_statem:start/[3,4] or
+%% gen_statem:start_link/[3,4], this function is called by the new
 %% process to initialize.
 %%
 %% @spec init(Args) -> {CallbackMode, StateName, State} |
@@ -306,9 +314,9 @@ handle_info(Info, State) ->
 %%--------------------------------------------------------------------
 %% @private
 %% @doc
-%% This function is called by a gen_server when it is about to
+%% This function is called by a gen_statem when it is about to
 %% terminate. It should be the opposite of Module:init/1 and do any
-%% necessary cleaning up. When it returns, the gen_server terminates
+%% necessary cleaning up. When it returns, the gen_statem terminates
 %% with Reason. The return value is ignored.
 %%
 %% @spec terminate(Reason, State) -> void()
