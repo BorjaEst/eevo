@@ -25,7 +25,7 @@
 -record(ruler, {
     id = ?NEW_RULER_ID :: ruler:id(),      % Ruler/Population id
     max_size   = 5     :: integer(),      % Population max agents
-    run_time   = {0, infinity} :: runtime_specs(),  
+    run_time   = {0, 100}      :: runtime_specs(),  
     generation = {0, infinity} :: generation_specs(),   
     score      = {0, infinity} :: score_specs(),   
     champion   = undefined     :: agent:id(), % Best score agent_id                
