@@ -160,8 +160,8 @@ simple_population() ->
     [].
 simple_population(_Config) ->
     Population = test_populations:n5_infinity(),
-    Agents   = [test_agents:random_score()||_<-?SEQ(?PARALLEL_AGENTS)],
-    _Results = test_population(Population, Agents),
+    Agents = [test_agents:random_score()||_<-?SEQ(?PARALLEL_AGENTS)],
+    _Population_Id = test_population(Population, Agents),
     ok.
 
 
@@ -171,8 +171,8 @@ test_with_time_limit() ->
 test_with_time_limit(_Config) ->
     Population = test_populations:n5_100ms(),
     Agents  = [test_agents:random_score()||_<-?SEQ(?PARALLEL_AGENTS)],
-    Results = test_population(Population, Agents),
-    print_results(Results).
+    Population_Id = test_population(Population, Agents),
+    print_results(Population_Id).
 
 % --------------------------------------------------------------------
 test_with_agents_limit() ->
@@ -180,8 +180,8 @@ test_with_agents_limit() ->
 test_with_agents_limit(_Config) ->
     Population = test_populations:n5_10generations(),
     Agents  = [test_agents:random_score()||_<-?SEQ(?PARALLEL_AGENTS)],
-    Results = test_population(Population, Agents),
-    print_results(Results).
+    Population_Id = test_population(Population, Agents),
+    print_results(Population_Id).
 
 % --------------------------------------------------------------------
 test_with_score_limit() ->
@@ -189,8 +189,8 @@ test_with_score_limit() ->
 test_with_score_limit(_Config) ->
     Population = test_populations:n5_1000points(),
     Agents  = [test_agents:random_score()||_<-?SEQ(?PARALLEL_AGENTS)],
-    Results = test_population(Population, Agents),
-    print_results(Results).
+    Population_Id = test_population(Population, Agents),
+    print_results(Population_Id).
 
 
 % --------------------------------------------------------------------
@@ -200,12 +200,9 @@ test_with_score_limit(_Config) ->
 test_population(Population, Agents) ->
     {ok, Population_Id} = correct_population_generation(Population),
     {ok,    Agents_Ids} = correct_agents_generation(Agents),
-    ok = correct_start(Population_Id),
-    ok = correct_agents_addition(Population_Id, Agents_Ids),
-    ok = correct_population_evolution(Population_Id),
-    {ok, Results} = collect_results(Population_Id),
+    ok = correct_population_evolution(Population_Id, Agents_Ids),
     ok = correct_stop(Population_Id),
-    Results.
+    Population_Id.
 
 % --------------------------------------------------------------------
 correct_population_generation(Population) ->
@@ -220,38 +217,13 @@ correct_agents_generation(Agents) ->
     ?END({ok, Agents_Id}).
 
 % --------------------------------------------------------------------
-correct_start(Population_Id) ->
-    ?HEAD("Correct population start ..............................."),
-    Population_Id = eevo:start(Population_Id),
-    ?END(ok).
-
-% --------------------------------------------------------------------
-correct_agents_addition(Population_Id, Agents_Id) ->
-    ?HEAD("Correct addition of multiple agents ...................."),
-    [ok = eevo:add(Population_Id, Id) || Id <- Agents_Id],
-    timer:sleep(20), ?INFO("Agents ids:", Agents_Id),
-    PoolList = ets:tab2list(eevo:score_pool(Population_Id)), 
-    ?INFO("Pool list after 20ms:", PoolList),
-    L = length([A1 || {{_,A2}}<-PoolList, A1<-Agents_Id, A1==A2]),
-    L = length(Agents_Id),
-    ?END(ok).
-
-% --------------------------------------------------------------------
-correct_population_evolution(Population_Id) ->
+correct_population_evolution(Population_Id, Agents_Ids) ->
     ?HEAD("Correct population evolution ..........................."),
-    Top_1 = eevo:top(Population_Id, 20),
-    ?INFO("Top after some ms", Top_1),
-    timer:sleep(20),
-    Top_2 = eevo:top(Population_Id, 20),
-    ?INFO("Top after some ms", Top_2),
-    true = Top_1 /= Top_2,
+    Population_Id = eevo:start(Population_Id, Agents_Ids),
+    Top5 = eevo:top(Population_Id, 5),
+    ?INFO("Top5 after population run", Top5),
+    [_|_] = Top5, 
     ?END(ok).
-
-
-% -------------------------------------------------------------------
-collect_results(Population_Id) -> 
-    Status = eevo:status(Population_Id),
-    {ok, Status}. 
 
 % -------------------------------------------------------------------
 correct_stop(Population_Id) ->
@@ -260,18 +232,17 @@ correct_stop(Population_Id) ->
     ?END(ok).
 
 % -------------------------------------------------------------------
-print_results(Results) -> 
-    #{
-        run_time   := RunTime,
-        generation := Generation,
-        best_score := BestScore,
-        top3       := Top3
-    } = Results,
+print_results(Population_Id) -> 
+    Population = edb:read(Population_Id),
+    RunTime    = demography:runtime(Population),
+    Generation = demography:generation(Population),
+    BestScore  = demography:score(Population),
+    Champion   = demography:champion(Population),
     ct:print([
-        "Training stopped \n",
-        io_lib:format("\tRuning time:\t~p\n", [RunTime]),
+        "Training report: \n",
+        io_lib:format("\tRuning time:\t~p\n",    [RunTime]),
         io_lib:format("\tGenerations:\t~p\n", [Generation]),
-        io_lib:format("\tBest score:\t~p\n",  [BestScore]),
-        io_lib:format("\ttop3 agents:\t~p\n", [Top3])
+        io_lib:format( "\tBest score:\t~p\n",  [BestScore]),
+        io_lib:format(   "\tChampion:\t~p\n",   [Champion])
     ]).
 
