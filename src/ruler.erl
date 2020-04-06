@@ -419,10 +419,10 @@ unknown_agent(Id, State) ->
 % --------------------------------------------------------------------
 update_population(State) -> 
     true = ets:update_element(?EV_POOL, get(id), [
-        {      #s.size,       State#s.size},
-        {  #s.run_time,   State#s.run_time},
-        {#s.generation, State#s.generation},
-        {#s.best_score, State#s.best_score}
+        {      #population.size,       State#s.size},
+        {  #population.run_time,   State#s.run_time},
+        {#population.generation, State#s.generation},
+        {#population.best_score, State#s.best_score}
     ]).
 
 % --------------------------------------------------------------------
