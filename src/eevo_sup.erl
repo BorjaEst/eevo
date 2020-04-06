@@ -27,7 +27,7 @@
 -define(POP_SUP_ID(Pop_Id), {element(1, Pop_Id), pop_sup}).
 -define(SPECS_POP_SUP(Population_Id), #{
     id       => ?POP_SUP_ID(Population_Id),
-    start    => {pop_sup, start_link, []},
+    start    => {pop_sup, start_link, [Population_Id]},
     restart  => temporary,
     type     => supervisor,
     modules  => [supervisor]
