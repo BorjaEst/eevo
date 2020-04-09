@@ -304,9 +304,9 @@ handle_event(enter, stopped, stopped, State) ->
 %%--------------------------------------------------------------------
 handle_event({call, From}, run, stopped, State) ->
     ?LOG_RUN_REQUEST_RECEIVED,
-    Seq = lists:seq(1, queue:len(State#s.queue)),
+    {0, Max} = State#s.size, 
     {next_state, running, State#s{from = From},
-        [{next_event, internal, new} || _ <- Seq]};
+        [{next_event, internal, new} || _ <- lists:seq(1, Max)]};
 %%--------------------------------------------------------------------
 %% Cast requests
 %%--------------------------------------------------------------------
