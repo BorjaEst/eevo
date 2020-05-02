@@ -29,7 +29,7 @@
     Properties :: properties().
 new(Properties) ->
     Agent = demography:agent(Properties),
-    edb:write(Agent),
+    mnesia:dirty_write(Agent),
     demography:id(Agent).
 
 %%--------------------------------------------------------------------
@@ -38,7 +38,7 @@ new(Properties) ->
 %%--------------------------------------------------------------------
 -spec start_link(Agent_Id :: id()) -> {ok, Pid :: pid()}.
 start_link(Agent_Id) ->
-    Agent    = edb:read(Agent_Id),
+    [Agent]  = mnesia:dirty_read(agent, Agent_Id),
     Function = demography:function(Agent),
     Arg      = demography:arguments(Agent),
     {ok, spawn_link(fun()-> Function(Arg) end)}.

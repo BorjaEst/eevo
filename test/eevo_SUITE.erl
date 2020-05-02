@@ -237,7 +237,7 @@ correct_stop(Population_Id) ->
 
 % -------------------------------------------------------------------
 print_results(Population_Id) -> 
-    Population = edb:read(Population_Id),
+    [Population] = mnesia:dirty_read(ruler, Population_Id),
     RunTime    = demography:runtime(Population),
     Generation = demography:generation(Population),
     BestScore  = demography:score(Population),

@@ -57,7 +57,7 @@ attributes_table() ->
     Population_Id :: population_id().
 population(Properties) ->
     Ruler = demography:ruler(Properties),
-    edb:write(Ruler),
+    mnesia:dirty_write(Ruler),
     demography:id(Ruler).
 
 %%--------------------------------------------------------------------
@@ -99,7 +99,7 @@ stop(Population_Id) ->
       Agent_Id :: agent_id().
 agent(Features) ->
     Agent = demography:agent(Features),
-    edb:write(Agent),
+    mnesia:dirty_write(Agent),
     demography:id(Agent).
 
 %%--------------------------------------------------------------------
@@ -211,9 +211,9 @@ tree(Agent_Id) ->
 -spec mutate(Agent_Id :: agent_id()) ->
     Child_Id:: agent_id().
 mutate(Agent_Id) ->
-    Agent = edb:read(Agent_Id),
-    Child = demography:mutate_agent(Agent),
-    edb:write(Child),
+    [Agent] = mnesia:dirty_read(agent, Agent_Id),
+    Child   = demography:mutate_agent(Agent),
+    mnesia:dirty_write(Child),
     demography:id(Child).
 
 %%--------------------------------------------------------------------

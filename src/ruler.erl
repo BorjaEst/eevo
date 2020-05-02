@@ -102,7 +102,7 @@
     Properties :: properties().
 new(Properties) ->
     Ruler = demography:ruler(Properties),
-    edb:write(Ruler),
+    mnesia:dirty_write(Ruler),
     demography:id(Ruler).
 
 %%--------------------------------------------------------------------
@@ -203,7 +203,7 @@ first_n(_Pool,     _ScoreAgent,_N)            -> [].
 %% @end
 %%--------------------------------------------------------------------
 init([Id, Supervisor]) ->
-    Ruler      = edb:read(Id),    
+    [Ruler]    = mnesia:dirty_read(ruler, Id),    
     Score_Pool = ets:new(undef, ?ETS_TABLE_OPTIONS),
     put(   id,          Id), % Used when updating the eevo_pool
     put(   sup, Supervisor), % Used when spawn agents under the OTP
@@ -497,7 +497,8 @@ print_stop_report(State) ->
 % --------------------------------------------------------------------
 save_population(State) -> 
     Id         = get(id),
-    Population = demography:edit(edb:read(Id), #{
+    [Ruler]    = mnesia:dirty_read(ruler, Id),
+    Population = demography:edit(Ruler, #{
         max_size   => element(2, State#s.size),
         runtime    => State#s.runtime,
         generation => State#s.generation,
@@ -505,7 +506,7 @@ save_population(State) ->
         champion   => element(2, ets:last(get(spool))),
         selection  => State#s.selection
     }),
-    edb:write(Population).
+    mnesia:dirty_write(Population).
     
 
 %%====================================================================
