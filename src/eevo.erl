@@ -139,7 +139,7 @@ score(Pid, Score) ->
 -spec score(Population_Id, Agent_Id, Score) -> ok when
     Population_Id :: population_id(),
     Agent_Id      :: agent_id(),
-    Score          :: float().
+    Score         :: float().
 score(Population_Id, Agent_Id, Score) ->
     Ruler = ruler_pid(Population_Id),
     ruler:score(Ruler, Agent_Id, Score).

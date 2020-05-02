@@ -10,20 +10,13 @@
 -include_lib("society.hrl").
 
 %% API
--export([start_link/1, start_population/1, stop_population/1]).
+-export([start_link/0, start_population/1, stop_population/1]).
 
 %% Supervisor callbacks
 -export([init/1]).
 
 -define(SERVER, ?MODULE).
 
--define(SPECS_DATALOG, #{
-    id       => datalog,
-    start    => {datalog, start_link, []},
-    restart  => permanent,
-    shutdown => 500,
-    modules  => [gen_server]
- }).
 -define(POP_SUP_ID(Pop_Id), {element(1, Pop_Id), pop_sup}).
 -define(SPECS_POP_SUP(Population_Id), #{
     id       => ?POP_SUP_ID(Population_Id),
@@ -41,8 +34,8 @@
 %% @doc Starts the supervisor
 %% @end
 %%--------------------------------------------------------------------
-start_link(StartArgs) ->
-    supervisor:start_link({local, ?SERVER}, ?MODULE, StartArgs).
+start_link() ->
+    supervisor:start_link({local, ?SERVER}, ?MODULE, []).
 
 %%--------------------------------------------------------------------
 %% @doc Requests the supervisor to start a population supervisor 
@@ -78,9 +71,7 @@ init([]) ->
     SupFlags = #{strategy  => rest_for_one, 
                  intensity => 10,
                  period    => 36},
-    ChildSpecs = [
-        ?SPECS_DATALOG
-    ],
+    ChildSpecs = [],
     start_ev_pool(),
     start_agents_pool(),
     {ok, {SupFlags, ChildSpecs}}.

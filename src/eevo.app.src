@@ -15,7 +15,7 @@
          eevo_sup
      ]}, 
      {mod, {eevo_app, []}},
-     {applications, [kernel, stdlib]},
+     {applications, [kernel, stdlib, mnesia, datalog]},
      {env, []},
      {maintainers, []},
      {licenses, ["Apache 2.0"]},
