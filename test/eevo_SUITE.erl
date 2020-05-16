@@ -232,9 +232,14 @@ correct_run(Id, Agents, Stop_condition) ->
 
 % -------------------------------------------------------------------
 print_results({Id, Results}) -> 
+    Data = map_get(population, Results),
+    Top3 = map_get(      top3, Results),
+    Tree = map_get(      tree, Results),
     ct:print([
         "Training report: \n",
-        io_lib:format("\tPopulation id:\t~p\n", [Id]),
-        io_lib:format("\tResults:\t~p\n", [Results])
+        io_lib:format(" -Id:  \t~p\n", [Id]),
+        io_lib:format(" -Data:\t~p\n", [Data]),
+        io_lib:format(" -Top3:\t~p\n", [Top3]),
+        io_lib:format(" -Tree:\t~p\n", [Tree])
     ]). 
 
