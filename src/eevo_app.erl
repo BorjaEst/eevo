@@ -16,8 +16,8 @@
 %%====================================================================
 
 start(_StartType, _StartArgs) ->
-    true = new_table(ruler, demography:fields(ruler)),
-    true = new_table(agent, demography:fields(agent)),
+    true = new_table(population, population:record_fields()),
+    true = new_table(     agent,      agent:record_fields()),
     eevo_sup:start_link().
 
 %%--------------------------------------------------------------------

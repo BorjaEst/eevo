@@ -13,20 +13,16 @@
 -author("borja").
 -compile([export_all, nowarn_export_all]). %%TODO: To delete after build
 
--include_lib("society.hrl").
-
 %% API
--export([]).
--export([]).
--export_Types([]).
+% -export([]).
+-export_Types([population/0, rules/0, selection/0, info/0]).
+-export_Types([agent/0, features/0]).
 
--type population_id() :: ruler:id().
--type agent_id()      :: agent:id().
--type rules()         :: ruler:properties().
--type features()      :: agent:properties().
--type summary()       :: #{Field :: info() => Value :: term()}.
--type info()          :: size | runtime | generation | score | 
-                         top3.
+-type population() :: population:id().
+-type agent()      :: agent:id().
+-type selection()  :: selection:func().
+-type features()   :: agent:features().
+-type info()       :: population:info().
 
 
 %%%===================================================================
@@ -34,173 +30,116 @@
 %%%===================================================================
 
 %%--------------------------------------------------------------------
-%% @doc Returns the tables and fields used by the eevo application in
-%% mnesia.
-%% @end
-%%--------------------------------------------------------------------
--spec attributes_table() ->
-    {Table_Name :: atom(), [Fields :: atom()]}.
-attributes_table() ->
-    [
-        {ruler, demography:fields(ruler)},
-        {agent, demography:fields(agent)}
-    ].
-
-%%--------------------------------------------------------------------
 %% @doc Creates a new population in the eevo database
-%%
-%% TODO: Indicate the available rules 
 %% @end
 %%--------------------------------------------------------------------
--spec population(Rules) -> Population_Id when
-    Rules         :: rules(),
-    Population_Id :: population_id().
-population(Properties) ->
-    Ruler = demography:ruler(Properties),
-    mnesia:dirty_write(Ruler),
-    demography:id(Ruler).
+-spec population(Name :: atom()) -> population().
+population(Name) -> population(Name, top3).
+
+-spec population(Name :: atom(), selection()) -> population().
+population(Name, Selection) ->
+    Population = population:new(Name, Selection),
+    ok = mnesia:dirty_write(Population),
+    population:id(Population).
 
 %%--------------------------------------------------------------------
-%% @doc Starts and runs a population acording to some limits. 
+%% @doc Runs a population starting by the defined seeds until the 
+%% condition of stop function returns true. The Stop function should 
+%% be arity 1 using the map from run_data from population info.
+%% If a name is defined instead a population, a new population is 
+%% created (what can overwrite the previous one).
 %% @end
 %%--------------------------------------------------------------------
--spec start(Population, Seeds) -> Population_Id when
-    Population    :: population_id() | rules(), 
-    Seeds         :: [agent:id()],
-    Population_Id :: population_id().
-start(Rules, Seeds) when is_map(Rules) ->
-    start(population(Rules), Seeds);
-
-start(Population_Id, Seeds) ->
-    eevo_sup:start_population(Population_Id),
-    Ruler = ruler_pid(Population_Id),
-    [ok = ruler:async_queue(Ruler,Id) || Id <- Seeds],
-    ok  = ruler:run(Ruler),
-    Population_Id.
+-spec run(NameOrPop, Seeds, Size, Stop_condition) -> population() when
+    NameOrPop       :: atom() | population(),
+    Seeds           :: [agent()],
+    Size            :: non_neg_integer(),
+    Stop_condition  :: function().
+run(Name, Seeds, Size, Stop_condition) when is_atom(Name) ->
+    run(population(Name), Seeds, Size, Stop_condition);
+run(Id, Seeds, Size, Stop) when is_function(Stop) ->
+    ok = ruler:run(Id, Seeds, Size, Stop),
+    #{population => info(Id), 
+      tree       => tree(Id),
+      top3       => top(Id, 3)}.
 
 %%--------------------------------------------------------------------
-%% @doc Stops a population killing the the ruler and all agents.
+%% @doc Creates a new agent with the indicated features.
 %% @end
 %%--------------------------------------------------------------------
--spec stop(Population_Id :: population_id()) -> Result when
-      Result :: 'ok' | {'error', Error},
-      Error :: 'not_found' | 'simple_one_for_one'.
-stop(Population_Id) ->
-    eevo_sup:stop_population(Population_Id).
-
-%%--------------------------------------------------------------------
-%% @doc Creates a new population in the eevo database.
-%%
-%% TODO: Indicate the available options
-%% @end
-%%--------------------------------------------------------------------
--spec agent(Features) -> Agent_Id when
-      Features :: features(),
-      Agent_Id :: agent_id().
+-spec agent(features()) -> agent().
 agent(Features) ->
-    Agent = demography:agent(Features),
-    mnesia:dirty_write(Agent),
-    demography:id(Agent).
+    Agent = agent:new(Features),
+    ok = mnesia:dirty_write(Agent),
+    agent:id(Agent).
 
 %%--------------------------------------------------------------------
-%% @doc Requests a population ruler to add an agent into its 
-%% population.
+%% @doc Returns info of a population id.
 %% @end
 %%--------------------------------------------------------------------
--spec add(Population_Id, Agent_Id) -> ok when
-    Population_Id :: population_id(),
-    Agent_Id      :: agent_id().
-add(Population_Id, Agent_Id) ->
-    Ruler = ruler_pid(Population_Id),
-    ruler:async_queue(Ruler, Agent_Id).
+-spec info(population()) -> info().
+info(Population_id) ->
+    case mnesia:dirty_read(population, Population_id) of
+        [Population] -> population:info(Population);
+        []           -> error(badarg)
+    end.
 
 %%--------------------------------------------------------------------
 %% @doc Add a score value to an agent id. The call is asynchronous.
 %% @end
 %%--------------------------------------------------------------------
--spec kill(Population_Id, Agent_Id) -> ok when
-    Population_Id :: population_id(),
-    Agent_Id      :: agent_id().
-kill(Population_Id, Agent_Id) ->
-    Ruler = ruler_pid(Population_Id),
-    ruler:stop(Ruler, Agent_Id).
-
-%%--------------------------------------------------------------------
-%% @doc Add a score value to an agent id. The call is asynchronous.
-%% @end
-%%--------------------------------------------------------------------
--spec score(Pid, Score) -> ok when
-    Pid   :: population_id(),
-    Score :: float().
-score(Pid, Score) ->
-    [DNI] = ets:lookup(?AGENTS_POOL, Pid),
-    score(DNI#dni.population_id, DNI#dni.agent_id, Score).
-
--spec score(Population_Id, Agent_Id, Score) -> ok when
-    Population_Id :: population_id(),
-    Agent_Id      :: agent_id(),
-    Score         :: float().
-score(Population_Id, Agent_Id, Score) ->
-    Ruler = ruler_pid(Population_Id),
-    ruler:score(Ruler, Agent_Id, Score).
+-spec score(Agent_Pid, Points) -> ok when
+    Agent_Pid :: pid(),
+    Points    :: float().
+score(Pid, Points) ->
+    #{agent_id    := Agent_id, 
+      score_group := Score_group} = agents_pool:info(Pid),
+    scorer:add_score(Score_group, Agent_id, Points).
 
 %%--------------------------------------------------------------------
 %% @doc Returns the ETS with the score table managed by a ruler.
 %% @end
 %%--------------------------------------------------------------------
--spec score_pool(Population_Id :: population_id()) ->
-    Pool :: ets:tid().
-score_pool(Population_Id) ->
-    ruler:score_pool(Population_Id).
+-spec score_table(population()) -> atom().
+score_table(Id) -> population:score_table(Id).
 
 %%--------------------------------------------------------------------
 %% @doc Returns the N agents with the highest score.
 %% @end
 %%--------------------------------------------------------------------
--spec top(Population_Id :: population_id(), N :: integer()) ->
-    [{Agent_Id :: agent_id(), Score :: float()}].
-top(Population_Id, N) ->
-    ruler:top(score_pool(Population_Id), N).
+-spec top(population(), N :: integer()) ->
+    [{agent(), Score :: float()}].
+top(Id, N) ->
+    Tab = score_table(Id),
+    DirtyPool = {x,Tab,pool}, %scorer:top doesn't use the element 1
+    scorer:top(DirtyPool, N).
 
 %%--------------------------------------------------------------------
 %% @doc Returns the N agents with the lowest score.
 %% @end
 %%--------------------------------------------------------------------
--spec bottom(Population_Id :: population_id(), N :: integer()) ->
-    [{Agent_Id :: agent_id(), Score :: float()}].
-bottom(Population_Id, N) ->
-    ruler:bottom(score_pool(Population_Id), N).
-
+-spec bottom(population(), N :: integer()) ->
+    [{agent(), Score :: float()}].
+bottom(Id, N) ->
+    Tab = score_table(Id),
+    DirtyPool = {x,Tab,pool}, %scorer:bottom doesn't use the element 1
+    scorer:bottom(DirtyPool, N).
 
 %%--------------------------------------------------------------------
-%% @doc Returns status of a population id.
+%% @doc Returns the genealogical tree of an agent or population.
 %% @end
 %%--------------------------------------------------------------------
--spec status(Population_Id :: population_id()) ->
-    Status :: summary().
-status(Population_Id) ->
-    case ets:lookup(?EV_POOL, Population_Id) of 
-        [Population] -> pop2status(Population);
-        []           -> {error, not_found}
-    end.
+-spec tree(agent() | population()) -> tree:tree().
+tree({_,population} = Id) -> 
+    Agents_ids = agents_list(Id),
+    tree:from_list(list_tree(Agents_ids));
 
-pop2status(Population) ->
-    #{
-        size       => Population#population.size,
-        runtime    => Population#population.runtime,
-        generation => Population#population.generation,
-        score      => Population#population.score,
-        top3       => top(Population#population.id, 3)
-    }.
+tree({_, agent} = Id) -> tree(Id, #{}). 
 
-%%--------------------------------------------------------------------
-%% @doc Returns the genealogical tree of an agent.
-%% @end
-%%--------------------------------------------------------------------
--spec tree(Agent_Id :: agent_id()) ->
-    Genealogical_Tree :: [agent_id()].
-tree(Agent_Id) ->
-    demography:tree(Agent_Id).
+tree(undefined, Tree) -> Tree;
+tree( Agent_id, Tree) -> 
+    [Agent] = mnesia:dirty_read(agent, Agent_id),
+    tree(agent:parent(Agent), #{Agent_id => Tree}).
 
 %%--------------------------------------------------------------------
 %% @doc Reads the father agent, applies the mutation function to the 
@@ -208,28 +147,31 @@ tree(Agent_Id) ->
 %% its Id.
 %% @end
 %%--------------------------------------------------------------------
--spec mutate(Agent_Id :: agent_id()) ->
-    Child_Id:: agent_id().
+-spec mutate(Agent_Id :: agent()) ->
+    Child_Id:: agent().
 mutate(Agent_Id) ->
     [Agent] = mnesia:dirty_read(agent, Agent_Id),
-    Child   = demography:mutate_agent(Agent),
-    mnesia:dirty_write(Child),
-    demography:id(Child).
+    Child   = agent:mutate(agent:clone(Agent)),
+    ok      = mnesia:dirty_write(Child),
+    agent:id(Child).
 
-%%--------------------------------------------------------------------
-%% @doc Pretty formats an eevo record.
-%% @end
-%%--------------------------------------------------------------------
--spec pformat(Population_Id :: population_id()) ->
-    Pretty_Format :: string().
-pformat(Element) ->
-    _Pretty_Format = demography:pformat(Element).
 
 %%%===================================================================
 %%% Internal functions
 %%%===================================================================
 
-% --------------------------------------------------------------------
-ruler_pid(Population_Id) -> 
-    ets:lookup_element(?EV_POOL, Population_Id, #population.ruler).
+% Returls a list of the population agents ids -----------------------
+agents_list(Population_id) -> 
+    Tab = score_table(Population_id),
+    DirtyPool = {x,Tab,pool}, %scorer:to_list doesn't use the element 1
+    ScoreIdList = scorer:to_list(DirtyPool),
+    {_, Agents_ids} = lists:unzip(ScoreIdList),
+    Agents_ids.
+
+% Returls a list of the listed agents as {Child, Parent} ------------
+list_tree([Id|Ids]) -> 
+   [Agent] = mnesia:dirty_read(agent, Id),
+   [{Id, agent:parent(Agent)} | list_tree(Ids)];
+list_tree([]) -> 
+    [].
 

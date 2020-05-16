@@ -3,11 +3,12 @@
      {vsn, "0.1.0"},
      {modules, [
          agent,
-         demography,
+         agents_pool,
          eevo_app,
          eevo_sup,
          eevo,
          pop_sup,
+         population,
          ruler,
          selection
      ]}, 

@@ -9,7 +9,7 @@
 -compile([export_all, nowarn_export_all]).
 
 -include_lib("common_test/include/ct.hrl").
--include_lib("society.hrl").
+-include_lib("stop_conditions.hrl").
 
 -define(HEAD, [$- || _ <-lists:seq(1,80)] ++ "\n").
 -define(HEAD(Text),  ct:log(?LOW_IMPORTANCE, ?HEAD ++ "~p", [Text])).
@@ -163,90 +163,78 @@ my_test_case_example(_Config) ->
 simple_population() ->
     [].
 simple_population(_Config) ->
-    Population = test_populations:n5_infinity(),
-    Agents = [test_agents:random_score()||_<-?SEQ(?PARALLEL_AGENTS)],
-    _Population_Id = test_population(Population, Agents),
+    AgentsF = [test_agents:random_score()||_<-?SEQ(?PARALLEL_AGENTS)],
+    {_Id, _Results} = test_population(AgentsF, ?max_generations(40)),
     ok.
-
 
 % --------------------------------------------------------------------
 test_with_time_limit() ->
     [].
 test_with_time_limit(_Config) ->
-    Population = test_populations:n5_100ms(),
-    Agents  = [test_agents:random_score()||_<-?SEQ(?PARALLEL_AGENTS)],
-    Population_Id = test_population(Population, Agents),
-    print_results(Population_Id).
+    AgentsF = [test_agents:random_score()||_<-?SEQ(?PARALLEL_AGENTS)],
+    {Id, Results} = test_population(AgentsF, ?stop_time(100)),
+    print_results({Id, Results}).
 
 % --------------------------------------------------------------------
 test_with_agents_limit() ->
     [].
 test_with_agents_limit(_Config) ->
-    Population = test_populations:n5_10generations(),
-    Agents  = [test_agents:random_score()||_<-?SEQ(?PARALLEL_AGENTS)],
-    Population_Id = test_population(Population, Agents),
-    print_results(Population_Id).
+    AgentsF = [test_agents:random_score()||_<-?SEQ(?PARALLEL_AGENTS)],
+    {Id, Results} = test_population(AgentsF, ?max_generations(40)),
+    print_results({Id, Results}).
 
 % --------------------------------------------------------------------
 test_with_score_limit() ->
     [].
 test_with_score_limit(_Config) ->
-    Population = test_populations:n5_1000points(),
-    Agents  = [test_agents:random_score()||_<-?SEQ(?PARALLEL_AGENTS)],
-    Population_Id = test_population(Population, Agents),
-    print_results(Population_Id).
+    AgentsF = [test_agents:random_score()||_<-?SEQ(?PARALLEL_AGENTS)],
+    {Id, Results} = test_population(AgentsF, ?score_target(120.0)),
+    print_results({Id, Results}).
 
 
 % --------------------------------------------------------------------
 % SPECIFIC HELPER FUNCTIONS ------------------------------------------
 
-% ....................................................................
-test_population(Population, Agents) ->
-    {ok, Population_Id} = correct_population_generation(Population),
-    {ok,    Agents_Ids} = correct_agents_generation(Agents),
-    ok = correct_population_evolution(Population_Id, Agents_Ids),
-    ok = correct_stop(Population_Id),
-    Population_Id.
+% Creates a random atom name to test tables and populations ---------
+rand_name() -> 
+    N = erlang:unique_integer([monotonic, positive]),
+    list_to_atom("Pop_" ++ integer_to_list(N)).
 
 % --------------------------------------------------------------------
-correct_population_generation(Population) ->
+test_population(Agents_features, Stop_condition) ->
+    {ok,      Id} = correct_population_generation(),
+    {ok,  Agents} = correct_agents_generation(Agents_features),
+    {ok, Results} = correct_run(Id, Agents, Stop_condition),
+    {Id, Results}.
+
+% --------------------------------------------------------------------
+correct_population_generation() ->
     ?HEAD("Correct generation of a population ....................."),
-    Population_Id = eevo:population(Population),
-    ?END({ok, Population_Id}).
+    Population_id = eevo:population(rand_name()),
+    ?END({ok, Population_id}).
 
 % --------------------------------------------------------------------
-correct_agents_generation(Agents) ->
+correct_agents_generation(AgentsF) ->
     ?HEAD("Correct generation of an agents ........................"),
-    Agents_Id = [eevo:agent(Agent) || Agent <- Agents],
+    Agents_Id = [eevo:agent(Features) || Features <- AgentsF],
     ?END({ok, Agents_Id}).
 
 % --------------------------------------------------------------------
-correct_population_evolution(Population_Id, Agents_Ids) ->
+correct_run(Id, Agents, Stop_condition) ->
     ?HEAD("Correct population evolution ..........................."),
-    Population_Id = eevo:start(Population_Id, Agents_Ids),
-    Top5 = eevo:top(Population_Id, 5),
+    Results = eevo:run(Id, Agents, ?PARALLEL_AGENTS, Stop_condition),
+    % Results = eevo:run(Id, Agents, ?PARALLEL_AGENTS +2, Stop_condition),
+    ?INFO("Results: ", Results),
+    Top5 = eevo:top(Id, 5),
     ?INFO("Top5 after population run", Top5),
     [_|_] = Top5, 
-    ?END(ok).
+    ?END({ok, Results}).
 
 % -------------------------------------------------------------------
-correct_stop(Population_Id) ->
-    ?HEAD("The population is correctly killed ....................."),
-    ok = eevo:stop(Population_Id),
-    ?END(ok).
-
-% -------------------------------------------------------------------
-print_results(Population_Id) -> 
-    [Population] = mnesia:dirty_read(ruler, Population_Id),
-    RunTime    = demography:runtime(Population),
-    Generation = demography:generation(Population),
-    BestScore  = demography:score(Population),
-    Champion   = demography:champion(Population),
+print_results({Id, Results}) -> 
     ct:print([
         "Training report: \n",
-        io_lib:format("\tRuning time:\t~p\n",    [RunTime]),
-        io_lib:format("\tGenerations:\t~p\n", [Generation]),
-        io_lib:format( "\tBest score:\t~p\n",  [BestScore]),
-        io_lib:format(   "\tChampion:\t~p\n",   [Champion])
-    ]).
+        io_lib:format("\tPopulation id:\t~p\n", [Id]),
+        io_lib:format("\tResults:\t~p\n", [Results])
+    ]). 
 

@@ -9,85 +9,65 @@
 
 -include_lib("eunit/include/eunit.hrl").
 -include_lib("kernel/include/logger.hrl").
--include_lib("society.hrl").
 
 -behaviour(gen_statem).
 
 %% API
 %%-export([start_link/0]).
--export_type([id/0, property/0, properties/0]).
+-export_type([]).
 
 %% gen_statem callbacks
 -export([init/1, format_status/2, handle_event/4, terminate/3, 
          code_change/4, callback_mode/0]).
 
--type id() :: {Ref :: reference(), ruler}.
--type property()   :: id | max_size | stop_time | generations | 
-                      target | selection.
--type properties() :: #{
-    OptionalProperty :: property() => Value :: term()
-}.
-
 -define(MAX_SIZE_TO_SELECTION,    20).
--define(POOL_UPDATE_INTERVAL,     10).
--define(CLEAN_DEAD_INTERVAL,      90).
 -define(RUNTIME_UPDATE_INTERVAL,   2).
--define(ETS_TABLE_OPTIONS, [ordered_set]).
--define(INIT_SCORE, 0.0).
 
--record(s, { % Short state record 
-    size       :: {Current :: integer(), Max :: integer()},
-    runtime    :: {Current :: integer(), End :: integer()},
-    generation :: {Current :: integer(), End :: integer()}, 
-    score      :: {Current ::   float(), End ::   float()},   
-    selection  :: selection:func(),
-    agents     :: #{Agent_Id :: agent:id() => Score :: number()},
-    queue      :: queue:queua(),
-    from       :: {Pid ::pid(), Ref :: reference()}
+-record(state, { 
+    population_id       :: population:id(),
+    start_time          :: integer(),
+    supervisor          :: pid(),
+    score_pool          :: scorer:pool(),
+    score_group         :: scorer:group(),
+    from                :: pid(),
+    queue               :: queue:queue(),
+    agents  = #{}       :: #{pid() => Id :: agent:id()},
+    max_size            :: integer(),
+    selection           :: selection:func(),
+    stop_cond           :: function(),
+    run_data            :: population:run_data()
  }).
+-define(POPULATION_ID, State#state.population_id).
+-define(   START_TIME, State#state.start_time   ).
+-define(   SUPERVISOR, State#state.supervisor   ).
+-define(   SCORE_POOL, State#state.score_pool   ).
+-define(  SCORE_GROUP, State#state.score_group  ).
+-define(         FROM, State#state.from         ).
+-define(        QUEUE, State#state.queue        ).
+-define(       AGENTS, State#state.agents       ).
+-define(         SIZE, map_size(?AGENTS)        ).
+-define(     MAX_SIZE, State#state.max_size     ).
+-define(    SELECTION, State#state.selection    ).
+-define(    STOP_COND, State#state.stop_cond    ).
+-define(         DATA, State#state.run_data     ).
+-define(         TIME, erlang:monotonic_time(millisecond)).
 
 -define(LOG_STATE_CHANGE(OldState, NewState),
-    ?LOG_INFO(#{what => "Ruler state has changed", 
+    ?LOG_DEBUG(#{what => "Ruler state has changed", 
                 pid=>self(), id => get(id), details => #{
                     state_new=>NewState, old_state=>OldState}},
               #{logger_formatter=>#{title=>"RULER STATE"}})
 ).
--define(LOG_RUN_REQUEST_RECEIVED,
-    ?LOG_DEBUG(#{what => "Received run request", pid=>self(),
-                 details => #{}},
-               #{logger_formatter=>#{title=>"RULER REQUEST"}})
-).
--define(LOG_QUEUE_REQUEST_RECEIVED(Id, Queue),
-    ?LOG_DEBUG(#{what => "Received cast queue request", pid=>self(),
-                 details => #{id => Id, queue => Queue}},
-               #{logger_formatter=>#{title=>"RULER REQUEST"}})
-).
--define(LOG_KILL_REQUEST_RECEIVED(Id, Agents),
-    ?LOG_DEBUG(#{what => "Received cast kill request", pid=>self(),
-                 details => #{id => Id, agents => Agents}},
-               #{logger_formatter=>#{title=>"RULER REQUEST"}})
-).
--define(LOG_SCORE_REQUEST_RECEIVED(Id, Score),
-    ?LOG_DEBUG(#{what => "Received cast score request", pid=>self(),
+-define(LOG_NEW_CHAMPION(Id, Score),
+    ?LOG_DEBUG(#{what => "New population best score", pid=>self(),
                  details => #{id=>Id, score=>Score}},
-               #{logger_formatter=>#{title=>"RULER REQUEST"}})
+               #{logger_formatter=>#{title=>"RULER EVENT"}})
 ).
 -define(LOG_AGENT_DOWN(DownRef, Pid),
     ?LOG_DEBUG(#{what => "Agent down", pid=>self(),
                  details => #{ref => DownRef, pid => Pid}},
-               #{logger_formatter=>#{title=>"RULER REQUEST"}})
+               #{logger_formatter=>#{title=>"RULER EVENT"}})
 ).
--define(LOG_UNKNOWN_AGENT(Agent_Id, Agents),
-    ?LOG_DEBUG(#{what => "Request for unknow agent", pid => self(),
-                 details => #{agent_id=>Agent_Id, agents=>Agents}},
-               #{logger_formatter=>#{title=>"RULER REQUEST"}})
-).
-
--ifdef(debug_mode).
--define(STDCALL_TIMEOUT, infinity).
--else.
--define(STDCALL_TIMEOUT, 5000).
--endif.
 
 
 %%%===================================================================
@@ -95,94 +75,18 @@
 %%%===================================================================
 
 %%--------------------------------------------------------------------
-%% @doc Creates a new ruler and stores it on the database.  
+%% @doc Starts a ruler to run a population.
 %% @end
 %%--------------------------------------------------------------------
--spec new(Properties) -> id() when
-    Properties :: properties().
-new(Properties) ->
-    Ruler = demography:ruler(Properties),
-    mnesia:dirty_write(Ruler),
-    demography:id(Ruler).
-
-%%--------------------------------------------------------------------
-%% @doc Starts the population ruler.
-%% @end
-%%--------------------------------------------------------------------
--spec start_link(Ruler_Id :: id()) -> gen_statem:start_ret().
-start_link(Ruler_Id) ->
-    gen_statem:start_link(?MODULE, [Ruler_Id, self()], []).
-
-%%--------------------------------------------------------------------
-%% @doc Request the ruler to run the population.
-%% @end
-%%--------------------------------------------------------------------
--spec run(Ruler :: pid()) -> ok.
-run(Ruler) -> 
-    gen_statem:call(Ruler, run).
-
-%%--------------------------------------------------------------------
-%% @doc Request the agent addition to the population. Asynchronous.
-%% @end
-%%--------------------------------------------------------------------
--spec async_queue(Ruler :: pid(), Agent_Id :: agent:id()) ->
-    ok.
-async_queue(Ruler, Agent_Id) ->
-    gen_statem:cast(Ruler, {queue, Agent_Id}).
-
-%%--------------------------------------------------------------------
-%% @doc Request the kill of an agent. Asynchronous.
-%% @end
-%%--------------------------------------------------------------------
--spec async_kill(Ruler :: pid(), Agent_Id :: agent:id()) ->
-    ok.
-async_kill(Ruler, Agent_Id) ->
-    gen_statem:cast(Ruler, {kill, Agent_Id}).
-
-%%--------------------------------------------------------------------
-%% @doc Adds a score to an agent. Asynchronous.
-%% @end
-%%--------------------------------------------------------------------
--spec score(Ruler, Agent_Id, Score) -> ok when 
-    Ruler    :: pid(), 
-    Agent_Id :: agent:id(), 
-    Score    :: float().
-score(Ruler, Agent_Id, Score) ->
-    gen_statem:cast(Ruler, {score, Agent_Id, Score}).
-
-%%--------------------------------------------------------------------
-%% @doc Returns the score pool ets table id.
-%% @end
-%%--------------------------------------------------------------------
--spec score_pool(Ruler_Id :: id()) -> ets:tid().
-score_pool(Ruler_Id) ->
-    ets:lookup_element(?EV_POOL, Ruler_Id, #population.score_pool).
-
-%%--------------------------------------------------------------------
-%% @doc Returns the top N of an score pool in a format {Id, Score}.
-%% @end
-%%--------------------------------------------------------------------
--spec top(Score_Pool :: ets:tid(), N :: integer()) -> 
-    [{Agent_Id :: agent:id(), Score :: float()}].
-top(Pool, N) -> last_n(Pool, ets:last(Pool), N).
-
-last_n(_Pool, '$end_of_table',_N)       -> [];
-last_n( Pool,      ScoreAgent, N) when N > 0 ->
-    [ScoreAgent|last_n(Pool, ets:prev(Pool,ScoreAgent), N-1)];
-last_n(_Pool,     _ScoreAgent,_N)       -> [].
-
-%%--------------------------------------------------------------------
-%% @doc Returns the N agents with the lowest score.
-%% @end
-%%--------------------------------------------------------------------
--spec bottom(Score_Pool :: ets:tid(), N :: integer()) -> 
-    [{Agent_Id :: agent:id(), Score :: float()}].
-bottom(Pool, N) -> first_n(Pool, ets:first(Pool), N).
-
-first_n(_Pool, '$end_of_table',_N)            -> [];
-first_n( Pool,      ScoreAgent, N) when N > 0 ->
-    [ScoreAgent|first_n(Pool,ets:next(Pool,ScoreAgent), N-1)];
-first_n(_Pool,     _ScoreAgent,_N)            -> [].
+-spec run(Population_id, Agents_ids, Size, Stop_condition) -> ok when 
+    Population_id  :: population:id(),
+    Agents_ids     :: [agent:id()],
+    Size           :: non_neg_integer(),
+    Stop_condition :: function().
+run(Population_id, Agents_ids, Size, Stop_condition) -> 
+    Arg = [Population_id, Agents_ids, Size, Stop_condition],
+    {ok, Pid} = gen_statem:start_link(?MODULE, [self()|Arg], []),
+    receive {run_end, Pid} -> ok end.
 
 
 %%%===================================================================
@@ -202,35 +106,29 @@ first_n(_Pool,     _ScoreAgent,_N)            -> [].
 %%                     {stop, StopReason}
 %% @end
 %%--------------------------------------------------------------------
-init([Id, Supervisor]) ->
-    [Ruler]    = mnesia:dirty_read(ruler, Id),    
-    Score_Pool = ets:new(undef, ?ETS_TABLE_OPTIONS),
-    put(   id,          Id), % Used when updating the eevo_pool
-    put(   sup, Supervisor), % Used when spawn agents under the OTP
-    put(agents,         []), % Used when cleaning dead from agents#{}
-    put( spool, Score_Pool), % Used when scoring agents
-    put(start_time, erlang:monotonic_time(millisecond)), 
-    true = ets:update_element(?EV_POOL, Id, [
-        {     #population.ruler,     self()},
-        {#population.score_pool, Score_Pool}
-    ]),
-    process_flag(trap_exit, true),
-    ?LOG_INFO("Population_Id:~p initiated", [Id]),
-    self() ! update_population, % Request to update pool after start
-    {RunnedTime, EndTime} = demography:runtime(Ruler),
-    timer:send_after(       EndTime - RunnedTime,       runtime_end),
-    timer:send_interval(   ?POOL_UPDATE_INTERVAL, update_population),
-    timer:send_interval(    ?CLEAN_DEAD_INTERVAL,        clean_dead),
-    timer:send_interval(?RUNTIME_UPDATE_INTERVAL,     eval_runtime),
-    {ok, stopped, #s{
-        size       = {  0,    demography:max_size(Ruler)},
-        runtime    = demography:runtime(Ruler),
-        generation = demography:generation(Ruler), 
-        score      = demography:score(Ruler),   
-        selection  = demography:selection(Ruler),
-        agents     = #{},
-        queue      = queue:new()
-    }}.
+init([From, Population_id, Agents_ids, Max_size, Stop_condition]) ->
+    [Population]    = mnesia:dirty_read(population, Population_id),
+    Population_info = population:info(Population),
+    Score_table       = map_get(score_table, Population_info),
+    {ok, Score_group} = scorer:new_group(),
+    {ok,  Score_pool} = scorer:new_pool(Score_table, [Score_group]),
+    ok = scorer:subscribe(Score_pool),
+    timer:send_interval(?RUNTIME_UPDATE_INTERVAL, update_runtime),
+    put(time, ?TIME), % To measure elapsed times
+    ?LOG_INFO(#{what => "Ruler stating", pid => self(), 
+                details => #{id=>Population_id, agents=>Agents_ids}}),
+    {ok, running, #state{
+        population_id = Population_id,
+        supervisor    = eevo_sup:new_supervisor(Population_id),
+        from          = From,
+        stop_cond     = Stop_condition,
+        score_group   = Score_group,
+        score_pool    = Score_pool,
+        selection     = map_get(selection, Population_info),
+        run_data      = map_get(run_data, Population_info),
+        max_size      = Max_size,
+        queue = lists:foldl(fun queue:in/2, queue:new(), Agents_ids)
+    }, [{next_event, internal, new} || _ <- lists:seq(1, Max_size)]}.
 
 
 %%--------------------------------------------------------------------
@@ -244,8 +142,8 @@ init([Id, Supervisor]) ->
 %%--------------------------------------------------------------------
 callback_mode() ->
     [
-        handle_event_function,
-        state_enter
+        handle_event_function
+        % state_enter
     ].
 
 %%--------------------------------------------------------------------
@@ -285,126 +183,52 @@ format_status(_Opt, [_PDict, _StateName, _State]) ->
 %%                   {keep_state_and_data, Actions}
 %% @end
 %%--------------------------------------------------------------------
-%% Enter events
+%% New agents
 %%--------------------------------------------------------------------
-handle_event(enter, OldState, running, State) ->
-    ?LOG_STATE_CHANGE(OldState, running),
-    {next_state, running, State};
-handle_event(enter, running, stopped, State) ->
-    ?LOG_STATE_CHANGE(running, stopped),
-    [pop_sup:stop_agent(Id,get(sup))||Id<-maps:keys(State#s.agents)],
-    print_stop_report(State),
-    save_population(State),
-    {next_state, stopped, State, {reply, State#s.from, ok}};
-handle_event(enter, stopped, stopped, State) ->
-    ?LOG_STATE_CHANGE(stopped, stopped),
-    {next_state, stopped, State};
-%%--------------------------------------------------------------------
-%% Call requests
-%%--------------------------------------------------------------------
-handle_event({call, From}, run, stopped, State) ->
-    ?LOG_RUN_REQUEST_RECEIVED,
-    {0, Max} = State#s.size, 
-    {next_state, running, State#s{from = From},
-        [{next_event, internal, new} || _ <- lists:seq(1, Max)]};
-%%--------------------------------------------------------------------
-%% Cast requests
-%%--------------------------------------------------------------------
-handle_event(cast, {queue, Id}, StateName, State) ->
-    ?LOG_QUEUE_REQUEST_RECEIVED(Id, State#s.queue),
-    handle_event(internal, new, StateName, State#s{
-        queue = queue:in(Id, State#s.queue)
-    });
-handle_event(cast,  {kill, Id},_StateName, State) ->
-    ?LOG_KILL_REQUEST_RECEIVED(Id, State#s.agents),
-    case pop_sup:stop_agent(Id, get(sup))of
-        ok                 -> keep_state_and_data;
-        {error, not_found} -> keep_state_and_data
-    end;
-handle_event(cast, {score, Id, Score}, StateName, State) ->
-    ?LOG_SCORE_REQUEST_RECEIVED(Id, Score),
-    case maps:get(Id, State#s.agents, error) of
-        error    -> 
-            handle_event(internal, {unknown, Id}, StateName, State);
-        OldScore -> 
-            NS = OldScore + Score,
-            update_pool(Id, OldScore, NS),
-            handle_event(internal,{eval_score,NS},StateName,State#s{
-                agents = maps:update(Id, NS, State#s.agents)
-            })
-    end;
+handle_event(internal, new, running, State) when ?SIZE < ?MAX_SIZE ->
+    case queue:out(?QUEUE) of
+        {{value,Id}, Queue} -> {Pid, Id} = run_agent(Id, State);
+        {     empty, Queue} -> {Pid, Id} = run_mutated(State)
+    end,
+    true = agents_pool:register(Pid, Id, ?POPULATION_ID, ?SCORE_GROUP),
+    {keep_state, State#state{
+        agents = maps:put(Pid, Id, ?AGENTS),
+        queue  = Queue
+    }};
+handle_event(internal, new, _StateName, _State) ->
+    keep_state_and_data;
 %%--------------------------------------------------------------------
 %% Update of information
 %%--------------------------------------------------------------------
-handle_event(info, update_population,_StateName, State) ->
-    update_population(State),
-    {keep_state, State};
-handle_event(info,        clean_dead,_StateName, State) ->
-    {keep_state, State#s{agents = clean_dead(State#s.agents)}};
-handle_event(info, {'DOWN',Ref,process,Pid,_}, StateName, State) ->
+handle_event(info, {'DOWN',Ref,process,Pid,_}, _StateName, State) ->
     ?LOG_AGENT_DOWN(Ref, Pid),
-    {Size, Max_Size} = State#s.size,
-    handle_event(internal, eval_generation, StateName, State#s{
-        size = {Size-1, Max_Size}
-    });
+    agents_pool:unregister(Pid),
+    {keep_state, State#state{
+        agents   = maps:remove(Pid, ?AGENTS),
+        run_data = maps:update_with(generation, fun(N)-> N+1 end, ?DATA)
+    }, [{next_event, internal, eval_stop}]};
+handle_event(info, {new_best,_,{Id, Score}}, _StateName, State) ->
+    ?LOG_NEW_CHAMPION(Id, Score),
+    {keep_state, State#state{
+        run_data = maps:update_with(best_score, fun(_)-> Score end, ?DATA)
+    }, [{next_event, internal, eval_stop}]};
+handle_event(info, update_runtime, _StateName, State) -> 
+    Time_now = ?TIME,
+    Tx = Time_now - put(time, Time_now),
+    {keep_state, State#state{
+        run_data = maps:update_with(runtime, fun(T)-> T+Tx end, ?DATA) 
+    }, [{next_event, internal, eval_stop}]};
 %%--------------------------------------------------------------------
-%% New agents
+%% Evaluation of population end 
 %%--------------------------------------------------------------------
-handle_event(internal, new, running,#s{size={S,M}}=State) when S<M ->
-    case queue:out(State#s.queue) of
-        {{value,Id}, Queue} -> Id = run_agent(Id);
-        {     empty, Queue} -> Id = run_mutated(State)
-    end,
-    {Generation, MaxGeneration} = State#s.generation,    
-    {keep_state, State#s{
-        size       = {         S+1,             M},
-        generation = {Generation+1, MaxGeneration},
-        agents     = maps:put(Id, ?INIT_SCORE, State#s.agents),
-        queue      = Queue
-    }};
-handle_event(internal, new,_StateName, State) ->
-    {keep_state, State};
-%%--------------------------------------------------------------------
-%% Evaluation of new report results
-%%--------------------------------------------------------------------
-handle_event(info,     eval_runtime,_StateName, State) ->
-    Elapsed = erlang:monotonic_time(millisecond) - get(start_time),
-    {_, Runtime_End} = State#s.runtime,
-    {keep_state, State#s{runtime = {Elapsed, Runtime_End}}};
-handle_event(internal, eval_generation, running, State) ->
-    case State#s.generation of
-        {N, Max} when N< Max -> 
-            handle_event(internal, new, running, State);
-        {N, Max} when N>=Max -> 
-            handle_event(internal, last_generation, running, State)
+handle_event(internal, eval_stop, running, State) ->
+    case apply(?STOP_COND, [?DATA]) of
+        false -> {keep_state_and_data, [{next_event, internal, new}]};
+        true  -> {stop, normal}
     end;
-handle_event(internal, eval_generation,  stopped, State) ->
-    {keep_state, State};
-handle_event(internal, {eval_score,S}, StateName, State) ->
-    case State#s.score of
-        {B,_} when S<B -> 
-            {keep_state, State};
-        {_,T} when S<T -> 
-            {keep_state, State#s{score={S,T}}};
-        {_,T} -> 
-            handle_event(internal, score_reached, 
-                         StateName, State#s{score={S,T}})
-    end;
-%%--------------------------------------------------------------------
-%% Events which would stop the population
-%%--------------------------------------------------------------------
-handle_event(info,         runtime_end, running, State) -> 
-    {next_state, stopped, State};
-handle_event(internal, last_generation, running, State) ->
-    {next_state, stopped, State};
-handle_event(internal,   score_reached, running, State) ->
-    {next_state, stopped, State};
 %%--------------------------------------------------------------------
 %% Unknown agents and events
 %%--------------------------------------------------------------------
-handle_event(internal, {unknown, Id},_StateName, State) ->
-    ?LOG_UNKNOWN_AGENT(Id, State#s.agents),
-    {keep_state, State};
 handle_event(EventType, EventContent, StateName, State) ->
     ?LOG_WARNING(#{what => "Unknown event", pid=>self(),
                    details => #{
@@ -425,10 +249,16 @@ handle_event(EventType, EventContent, StateName, State) ->
 %% @spec terminate(Reason, StateName, State) -> void()
 %% @end
 %%--------------------------------------------------------------------
-terminate(Reason, OldState, _State) ->
+terminate(Reason, OldState, State) ->
     ?LOG_INFO(#{what => "Ruler terminating", pid => self(), 
                 details => #{reason => Reason, state => OldState}}),
-    ok.
+    [pop_sup:stop_agent(?SUPERVISOR, Id) || Id<-maps:values(?AGENTS)],
+    {atomic, ok} = mnesia:transaction(
+        fun() ->
+            [Population] = mnesia:read(population, ?POPULATION_ID), 
+            mnesia:write(population:update(Population, ?DATA))
+        end),
+    ?FROM ! {run_end, self()}.
 
 %%--------------------------------------------------------------------
 %% @private
@@ -447,67 +277,18 @@ code_change(_OldVsn, StateName, State, _Extra) ->
 %%%===================================================================
 
 % --------------------------------------------------------------------
-run_agent(Id) -> 
-    {ok, Pid} = pop_sup:start_agent(Id, get(id), get(sup)),
+run_agent(Id, State) -> 
+    {ok, Pid} = pop_sup:start_agent(?SUPERVISOR, ?SCORE_GROUP, Id),
     erlang:monitor(process, Pid),
-    Id.
+    {Pid, Id}.
 
 % --------------------------------------------------------------------
 run_mutated(State) -> 
-    TopScoreAgents = top(get(spool), ?MAX_SIZE_TO_SELECTION),
-    SelectedId = selection:func(State#s.selection, TopScoreAgents),
+    TopScoreAgents = scorer:top(?SCORE_POOL, ?MAX_SIZE_TO_SELECTION),
+    SelectedId = selection:func(?SELECTION, TopScoreAgents),
     Id = eevo:mutate(SelectedId),
-    run_agent(Id).
+    run_agent(Id, State).
 
-% --------------------------------------------------------------------
-update_pool(Id, OldScore, NewScore) -> 
-    Score_Pool = get(spool),
-    true = ets:delete(Score_Pool, {OldScore, Id}),
-    true = ets:insert(Score_Pool, {{NewScore, Id}}).
-
-% --------------------------------------------------------------------
-update_population(State) -> 
-    true = ets:update_element(?EV_POOL, get(id), [
-        {      #population.size,       State#s.size},
-        {   #population.runtime,    State#s.runtime},
-        {#population.generation, State#s.generation},
-        {     #population.score,      State#s.score}
-    ]).
-
-% --------------------------------------------------------------------
-clean_dead(Agents) -> 
-    Previous = put(agents, maps:keys(Agents)),
-    Running  = [Id||{Id,_,_,_}<-supervisor:which_children(get(sup))],
-    clean_dead(Previous -- Running, Agents).
-
-clean_dead([Id | Rest], Agents) -> 
-    clean_dead(Rest, maps:remove(Id, Agents));
-clean_dead([], Agents) -> Agents.
-
-% --------------------------------------------------------------------
-print_stop_report(State) -> 
-    io:format([
-        "Training stopped \n",
-        io_lib:format("\tRuning time:\t~p\n", [State#s.runtime]),
-        io_lib:format("\tGenerations:\t~p\n", [State#s.generation]),
-        io_lib:format("\tBest score:\t~p\n",  [State#s.score]),
-        io_lib:format("\ttop3 agents:\t~p\n", [top(get(spool), 3)])
-    ]).
-
-% --------------------------------------------------------------------
-save_population(State) -> 
-    Id         = get(id),
-    [Ruler]    = mnesia:dirty_read(ruler, Id),
-    Population = demography:edit(Ruler, #{
-        max_size   => element(2, State#s.size),
-        runtime    => State#s.runtime,
-        generation => State#s.generation,
-        score      => State#s.score,
-        champion   => element(2, ets:last(get(spool))),
-        selection  => State#s.selection
-    }),
-    mnesia:dirty_write(Population).
-    
 
 %%====================================================================
 %% Eunit white box tests
