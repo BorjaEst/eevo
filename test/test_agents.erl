@@ -27,7 +27,7 @@ function_example(Arguments) ->
     timer:sleep(rand:uniform(10)),
     MyBase  = maps:get(score_base, Arguments),
     MyScore = rand:uniform(100),
-    {stop, [{score, MyBase+MyScore}]}.
+    {stop, normal, [{score, MyBase+MyScore}]}.
 
 random_score() -> 
     #{

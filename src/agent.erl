@@ -111,32 +111,26 @@ mutate(Agent) ->
 %%--------------------------------------------------------------------
 -spec start_link(Agent_Id :: id(), scorer:group()) -> 
     {ok, Pid :: pid()}.
-start_link(Id, SGroup) ->
+start_link(Id, ScoreGroup) ->
     [Agent]   = mnesia:dirty_read(agent, Id),
     Function  = Agent#agent.function,
     Arguments = Agent#agent.arguments,
-    {ok, spawn_link(?MODULE, init, [Id, SGroup, Function, Arguments])}.
+    State = #state{id=Id, sgroup=ScoreGroup},
+    {ok, spawn_link(?MODULE, loop, [Function, Arguments, State])}.
 
 
 %%%===================================================================
 %%% Callback functions
 %%%===================================================================
 
-% Call for the initialization of the agent --------------------------
-init(Id, SGroup, Function, Arguments) -> 
-    loop(#state{
-        id         = Id,
-        sgroup     = SGroup,
-        function   = Function,
-        arguments  = Arguments
-    }).
-
 % Call for the agent loop -------------------------------------------
-loop(State) -> 
-    case apply(?FUNCTION, ?ARGUMENTS) of 
-        {repeat, Actions} -> loop(actions(Actions, State));
-        {  stop, Actions} ->      actions(Actions, State) ;
-        Other             -> error({"Wrong agent return", Other})
+loop(Function, Arguments, State) -> 
+    case apply(Function, Arguments) of 
+        {next, Fun, Arg         } -> loop(Fun, Arg, State);
+        {next, Fun, Arg, Actions} -> loop(Fun, Arg, actions(Actions, State));
+        {stop,   Reason         } -> exit(Reason);
+        {stop,   Reason, Actions} -> actions(Actions, State), exit(Reason);
+        Other -> error({"Wrong agent return", Other})
     end.
 
 
@@ -148,12 +142,6 @@ loop(State) ->
 actions([{score, Points} | Actions], State) -> 
     scorer:add_score(?SGROUP, ?ID, Points),
     actions(Actions, State);
-
-actions([{switch_fun,  Function} | Actions], State) -> 
-    actions(Actions, State#state{ function =  Function});
-
-actions([{switch_arg, Arguments} | Actions], State) -> 
-    actions(Actions, State#state{arguments = Arguments});
 
 actions([], State) -> 
     State.

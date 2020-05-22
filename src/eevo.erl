@@ -23,6 +23,10 @@
 -type selection()  :: selection:func().
 -type features()   :: agent:features().
 -type info()       :: population:info().
+-type tree()       :: #{agent() => tree()}.
+-type results()    :: #{population := info(),
+                        tree       := tree(),
+                        top3       := [agent()]}.
 
 
 %%%===================================================================
@@ -50,7 +54,7 @@ population(Name, Selection) ->
 %% created (what can overwrite the previous one).
 %% @end
 %%--------------------------------------------------------------------
--spec run(NameOrPop, Seeds, Size, Stop_condition) -> population() when
+-spec run(NameOrPop, Seeds, Size, Stop_condition) -> results() when
     NameOrPop       :: atom() | population(),
     Seeds           :: [agent()],
     Size            :: non_neg_integer(),
