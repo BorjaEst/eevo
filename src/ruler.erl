@@ -25,7 +25,6 @@
 
 -record(state, { 
     population_id       :: population:id(),
-    start_time          :: integer(),
     supervisor          :: pid(),
     score_pool          :: scorer:pool(),
     score_group         :: scorer:group(),
@@ -38,7 +37,6 @@
     run_data            :: population:run_data()
  }).
 -define(POPULATION_ID, State#state.population_id).
--define(   START_TIME, State#state.start_time   ).
 -define(   SUPERVISOR, State#state.supervisor   ).
 -define(   SCORE_POOL, State#state.score_pool   ).
 -define(  SCORE_GROUP, State#state.score_group  ).
@@ -298,8 +296,6 @@ code_change(_OldVsn, StateName, State, _Extra) ->
 %%%===================================================================
 
 
-
-
 %%====================================================================
 %% Eunit white box tests
 %%====================================================================
@@ -315,3 +311,4 @@ code_change(_OldVsn, StateName, State, _Extra) ->
 
 % --------------------------------------------------------------------
 % SPECIFIC HELPER FUNCTIONS ------------------------------------------
+
