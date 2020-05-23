@@ -20,13 +20,13 @@
 -define(INFO(Text, Info), ct:log(?LOW_IMPORTANCE, "~p: ~p", [Text, Info])).
 -define(ERROR(Error),     ct:pal(?HI_IMPORTANCE, "Error: ~p", [Error])).
 
--define(PARALLEL_POPULATIONS, 9).
+-define(PARALLEL_POPULATIONS, 8).
 -define(PARALLEL_AGENTS,      8).
 -define(PERFORMANCE_MEASURE_TIME_MS, 1000).
 
--define(TEST_POP_TIME_LIMIT, 1000).
--define(TEST_POP_AGENTS_LIMIT, 20).
--define(TEST_POP_SCORE_LIMIT, 80.00).
+-define(TEST_POP_TIME_LIMIT, 60).
+-define(TEST_POP_AGENTS_LIMIT, 40).
+-define(TEST_POP_SCORE_LIMIT, 120.00).
 
 -define(SEQ(N), lists:seq(1, N)).
 
@@ -133,9 +133,8 @@ groups() ->
 %%--------------------------------------------------------------------
 all() ->
     [
-        {group, tests_for_multiple_populations},
         {group, tests_with_limits},
-        simple_population  % GROUPS CANNOT BE DEBUGGED
+        {group, tests_for_multiple_populations}
     ].
 
 %%--------------------------------------------------------------------
@@ -164,7 +163,14 @@ simple_population() ->
     [].
 simple_population(_Config) ->
     AgentsF = [test_agents:random_score()||_<-?SEQ(?PARALLEL_AGENTS)],
-    {_Id, _Results} = test_population(AgentsF, ?max_generations(40)),
+    Stop_condition = ltools:randnth(
+        [
+            ?stop_time(3000),
+            ?max_generations(4500),
+            ?score_target(1500.0)
+        ]
+    ),
+    {_Id, _Results} = test_population(AgentsF, Stop_condition),
     ok.
 
 % --------------------------------------------------------------------
@@ -172,7 +178,8 @@ test_with_time_limit() ->
     [].
 test_with_time_limit(_Config) ->
     AgentsF = [test_agents:random_score()||_<-?SEQ(?PARALLEL_AGENTS)],
-    {Id, Results} = test_population(AgentsF, ?stop_time(40)),
+    Stop_condition = ?stop_time(?TEST_POP_TIME_LIMIT),
+    {Id, Results} = test_population(AgentsF, Stop_condition),
     print_results({Id, Results}).
 
 % --------------------------------------------------------------------
@@ -180,7 +187,8 @@ test_with_agents_limit() ->
     [].
 test_with_agents_limit(_Config) ->
     AgentsF = [test_agents:random_score()||_<-?SEQ(?PARALLEL_AGENTS)],
-    {Id, Results} = test_population(AgentsF, ?max_generations(40)),
+    Stop_condition = ?max_generations(?TEST_POP_AGENTS_LIMIT),
+    {Id, Results} = test_population(AgentsF, Stop_condition),
     print_results({Id, Results}).
 
 % --------------------------------------------------------------------
@@ -188,7 +196,8 @@ test_with_score_limit() ->
     [].
 test_with_score_limit(_Config) ->
     AgentsF = [test_agents:random_score()||_<-?SEQ(?PARALLEL_AGENTS)],
-    {Id, Results} = test_population(AgentsF, ?score_target(120.0)),
+    Stop_condition = ?score_target(?TEST_POP_SCORE_LIMIT),
+    {Id, Results} = test_population(AgentsF, Stop_condition),
     print_results({Id, Results}).
 
 
