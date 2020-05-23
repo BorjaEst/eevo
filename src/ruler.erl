@@ -59,8 +59,13 @@
               #{logger_formatter=>#{title=>"RULER STATE"}})
 ).
 -define(LOG_NEW_CHAMPION(Id, Score),
-    ?LOG_DEBUG(#{what => "New population best score", pid=>self(),
+    ?LOG_INFO(#{what => "New population best score", pid=>self(),
                  details => #{id=>Id, score=>Score}},
+               #{logger_formatter=>#{title=>"RULER EVENT"}})
+).
+-define(LOG_AGENT_UP(Id, Pid),
+    ?LOG_DEBUG(#{what => "Agent up", pid=>self(),
+                 details => #{id => Id, pid => Pid}},
                #{logger_formatter=>#{title=>"RULER EVENT"}})
 ).
 -define(LOG_AGENT_DOWN(DownRef, Pid),
@@ -207,6 +212,7 @@ handle_event(internal, mutate_and_run, running, State) ->
     end;
 handle_event(internal, {run, Id}, running, State) ->
     {ok, Pid} = pop_sup:start_agent(?SUPERVISOR, ?SCORE_GROUP, Id),
+    ?LOG_AGENT_UP(Id, Pid),
     erlang:monitor(process, Pid),
     true = agents_pool:register(Pid, Id, ?POPULATION_ID, ?SCORE_GROUP),
     {keep_state, State#state{
