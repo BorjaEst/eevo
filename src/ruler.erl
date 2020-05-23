@@ -1,11 +1,10 @@
 %%%-------------------------------------------------------------------
-%%% @author borja
-%%% @doc
-%%%
+%%% @doc The ruler is the process in charge of spawning the population
+%%% agents. Also evaluates the end condition to stop the population 
+%%% and returns the results to the requester.
 %%% @end
 %%%-------------------------------------------------------------------
 -module(ruler).
--compile([export_all, nowarn_export_all]). %%TODO: To delete after build
 
 -include_lib("eunit/include/eunit.hrl").
 -include_lib("kernel/include/logger.hrl").
@@ -13,7 +12,7 @@
 -behaviour(gen_statem).
 
 %% API
-%%-export([start_link/0]).
+-export([run/4]).
 -export_type([]).
 
 %% gen_statem callbacks
