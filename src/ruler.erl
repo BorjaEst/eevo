@@ -187,16 +187,31 @@ format_status(_Opt, [_PDict, _StateName, _State]) ->
 %%--------------------------------------------------------------------
 handle_event(internal, new, running, State) when ?SIZE < ?MAX_SIZE ->
     case queue:out(?QUEUE) of
-        {{value,Id}, Queue} -> {Pid, Id} = run_agent(Id, State);
-        {     empty, Queue} -> {Pid, Id} = run_mutated(State)
-    end,
-    true = agents_pool:register(Pid, Id, ?POPULATION_ID, ?SCORE_GROUP),
-    {keep_state, State#state{
-        agents = maps:put(Pid, Id, ?AGENTS),
-        queue  = Queue
-    }};
+        {{value,Id}, Queue} -> 
+            {keep_state, State#state{queue = Queue}, 
+                [{next_event, internal, {run, Id}}]};  
+        {empty, _} -> 
+            {keep_state_and_data, 
+                [{next_event, internal, mutate_and_run}]}
+    end;
 handle_event(internal, new, _StateName, _State) ->
     keep_state_and_data;
+handle_event(internal, mutate_and_run, running, State) ->
+    case scorer:top(?SCORE_POOL, ?MAX_SIZE_TO_SELECTION) of 
+        [_|_] = TopScoreAgents -> 
+            SelectedId = selection:func(?SELECTION, TopScoreAgents),
+            Id = eevo:mutate(SelectedId),
+            {keep_state, State, [{next_event, internal, {run, Id}}]};    
+        [] -> 
+            keep_state_and_data
+    end;
+handle_event(internal, {run, Id}, running, State) ->
+    {ok, Pid} = pop_sup:start_agent(?SUPERVISOR, ?SCORE_GROUP, Id),
+    erlang:monitor(process, Pid),
+    true = agents_pool:register(Pid, Id, ?POPULATION_ID, ?SCORE_GROUP),
+    {keep_state, State#state{
+        agents = maps:put(Pid, Id, ?AGENTS)
+    }}; 
 %%--------------------------------------------------------------------
 %% Update of information
 %%--------------------------------------------------------------------
@@ -276,18 +291,7 @@ code_change(_OldVsn, StateName, State, _Extra) ->
 %%% Internal functions
 %%%===================================================================
 
-% --------------------------------------------------------------------
-run_agent(Id, State) -> 
-    {ok, Pid} = pop_sup:start_agent(?SUPERVISOR, ?SCORE_GROUP, Id),
-    erlang:monitor(process, Pid),
-    {Pid, Id}.
 
-% --------------------------------------------------------------------
-run_mutated(State) -> 
-    TopScoreAgents = scorer:top(?SCORE_POOL, ?MAX_SIZE_TO_SELECTION),
-    SelectedId = selection:func(?SELECTION, TopScoreAgents),
-    Id = eevo:mutate(SelectedId),
-    run_agent(Id, State).
 
 
 %%====================================================================

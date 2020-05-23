@@ -20,8 +20,8 @@
 -define(INFO(Text, Info), ct:log(?LOW_IMPORTANCE, "~p: ~p", [Text, Info])).
 -define(ERROR(Error),     ct:pal(?HI_IMPORTANCE, "Error: ~p", [Error])).
 
--define(PARALLEL_POPULATIONS, 5).
--define(PARALLEL_AGENTS,      6).
+-define(PARALLEL_POPULATIONS, 9).
+-define(PARALLEL_AGENTS,      8).
 -define(PERFORMANCE_MEASURE_TIME_MS, 1000).
 
 -define(TEST_POP_TIME_LIMIT, 1000).
@@ -172,7 +172,7 @@ test_with_time_limit() ->
     [].
 test_with_time_limit(_Config) ->
     AgentsF = [test_agents:random_score()||_<-?SEQ(?PARALLEL_AGENTS)],
-    {Id, Results} = test_population(AgentsF, ?stop_time(100)),
+    {Id, Results} = test_population(AgentsF, ?stop_time(40)),
     print_results({Id, Results}).
 
 % --------------------------------------------------------------------
@@ -222,8 +222,7 @@ correct_agents_generation(AgentsF) ->
 % --------------------------------------------------------------------
 correct_run(Id, Agents, Stop_condition) ->
     ?HEAD("Correct population evolution ..........................."),
-    Results = eevo:run(Id, Agents, ?PARALLEL_AGENTS, Stop_condition),
-    % Results = eevo:run(Id, Agents, ?PARALLEL_AGENTS +2, Stop_condition),
+    Results = eevo:run(Id, Agents, ?PARALLEL_AGENTS +2, Stop_condition),
     ?INFO("Results: ", Results),
     Top5 = eevo:top(Id, 5),
     ?INFO("Top5 after population run", Top5),

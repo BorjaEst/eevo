@@ -42,9 +42,7 @@ apply_fun( _Ref,_ScoreAgents) ->  error(not_defined).
 %%====================================================================
 
 %%--------------------------------------------------------------------
-%% @doc
-%% % TODO: To make description
-%%
+%% @doc Returns a random agent from the top3.
 %% @end
 %%--------------------------------------------------------------------
 % TODO: Define specs
@@ -59,12 +57,11 @@ top3([_,_] = ScoreAgents) ->
 top3([{_, Agent_Id}]) -> 
     Agent_Id;
 top3([]) -> 
-    error(badarg).
+    [].
 
 %%--------------------------------------------------------------------
-%% @doc
-%% % TODO: To make description
-%%
+%% @doc Returns a random agent from top3, but the probability of each 
+%% is proportional to the score.
 %% @end
 %%--------------------------------------------------------------------
 % TODO: Define specs
@@ -78,7 +75,7 @@ ramp3([_,_] = ScoreAgents) ->
 ramp3([{_, Agent_Id}]) -> 
     Agent_Id;
 ramp3([]) -> 
-    error(badarg).
+    [].
 
 
 %%====================================================================
