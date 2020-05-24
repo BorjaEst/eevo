@@ -220,7 +220,7 @@ handle_event(internal, {run, Id}, running, State) ->
 %%--------------------------------------------------------------------
 handle_event(info, {'DOWN',Ref,process,Pid,_}, _StateName, State) ->
     ?LOG_AGENT_DOWN(Ref, Pid),
-    agents_pool:unregister(Pid),
+    true = agents_pool:unregister(Pid),
     {keep_state, State#state{
         agents   = maps:remove(Pid, ?AGENTS),
         run_data = maps:update_with(generation, fun(N)-> N+1 end, ?DATA)
@@ -271,6 +271,7 @@ terminate(Reason, OldState, State) ->
     ?LOG_INFO(#{what => "Ruler terminating", pid => self(), 
                 details => #{reason => Reason, state => OldState}}),
     ok = eevo_sup:stop_supervisor(?POPULATION_ID),
+    [true = agents_pool:unregister(Pid) || Pid <- maps:keys(?AGENTS)],
     {atomic, ok} = mnesia:transaction(
         fun() ->
             [Population] = mnesia:read(population, ?POPULATION_ID), 
