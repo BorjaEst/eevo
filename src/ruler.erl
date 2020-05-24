@@ -270,7 +270,7 @@ handle_event(EventType, EventContent, StateName, State) ->
 terminate(Reason, OldState, State) ->
     ?LOG_INFO(#{what => "Ruler terminating", pid => self(), 
                 details => #{reason => Reason, state => OldState}}),
-    [pop_sup:stop_agent(?SUPERVISOR, Id) || Id<-maps:values(?AGENTS)],
+    ok = eevo_sup:stop_supervisor(?POPULATION_ID),
     {atomic, ok} = mnesia:transaction(
         fun() ->
             [Population] = mnesia:read(population, ?POPULATION_ID), 
