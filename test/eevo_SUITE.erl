@@ -45,7 +45,6 @@ suite() ->
 %%--------------------------------------------------------------------
 init_per_suite(Config) ->
     ok = application:start(mnesia),
-    ok = application:start(datalog),
     ok = application:start(eevo),
     Config.
 
@@ -55,7 +54,6 @@ init_per_suite(Config) ->
 %%--------------------------------------------------------------------
 end_per_suite(_Config) ->
     ok = application:stop(mnesia),
-    ok = application:stop(datalog),
     ok = application:stop(eevo),
     ok.
 
