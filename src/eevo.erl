@@ -68,6 +68,13 @@ run(Id, Seeds, Size, Stop) when is_function(Stop) ->
       top3       => top(Id, 3)}.
 
 %%--------------------------------------------------------------------
+%% @doc Runs an agent returning its pid.
+%% @end
+%%--------------------------------------------------------------------
+-spec run(Agent_id::agent()) -> {ok, pid()}.
+run(Agent) -> agent:start(Agent).
+
+%%--------------------------------------------------------------------
 %% @doc Creates a new agent with the indicated features.
 %% @end
 %%--------------------------------------------------------------------
