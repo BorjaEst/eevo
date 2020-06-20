@@ -85,14 +85,19 @@ agent(Features) ->
     agent:id(Agent).
 
 %%--------------------------------------------------------------------
-%% @doc Returns info of a population id.
+%% @doc Returns the info from a population or agent.
 %% @end
 %%--------------------------------------------------------------------
--spec info(population()) -> info().
-info(Population_id) ->
+-spec info(population() | agent()) -> info() | features().
+info({_, population} = Population_id) ->
     case mnesia:dirty_read(population, Population_id) of
         [Population] -> population:info(Population);
         []           -> error(badarg)
+    end;
+info({_, agent} = Agent_id) ->
+    case mnesia:dirty_read(agent, Agent_id) of
+        [Agent] -> agent:features(Agent);
+        []      -> error(badarg)
     end.
 
 %%--------------------------------------------------------------------

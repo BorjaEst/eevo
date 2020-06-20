@@ -94,6 +94,18 @@ record_fields() -> record_info(fields, agent).
 parent(Agent) -> Agent#agent.parent.
 
 %%--------------------------------------------------------------------
+%% @doc Returns the agent parent.  
+%% @end
+%%--------------------------------------------------------------------
+-spec features(agent()) -> features().
+features(Agent) ->
+    #{
+        function  => Agent#agent.function,
+        arguments => Agent#agent.arguments,
+        mutation  => Agent#agent.mutation
+    }.
+
+%%--------------------------------------------------------------------
 %% @doc Mutates an agent (The id keeps the same).
 %% @end
 %--------------------------------------------------------------------
