@@ -112,9 +112,8 @@ features(Agent) ->
 -spec mutate(Agent :: agent()) -> 
     Mutated :: agent().
 mutate(Agent) -> 
-    Mutation_Function = Agent#agent.mutation,
     Agent#agent{
-        arguments = Mutation_Function(Agent#agent.arguments)
+        arguments = apply(Agent#agent.mutation, Agent#agent.arguments)
     }.
 
 %%--------------------------------------------------------------------
