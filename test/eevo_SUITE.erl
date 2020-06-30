@@ -29,6 +29,8 @@
 -define(TEST_POP_SCORE_LIMIT, 120.00).
 
 -define(SEQ(N), lists:seq(1, N)).
+-define(SELECTIONS, [top3, ramp3]).
+
 
 %%--------------------------------------------------------------------
 %% Function: suite() -> Info
@@ -110,15 +112,15 @@ end_per_testcase(_TestCase, _Config) ->
 %%--------------------------------------------------------------------
 groups() ->
     [
-        {tests_for_multiple_populations, [parallel, shuffle],
-         [simple_population || _ <- ?SEQ(?PARALLEL_POPULATIONS)]
-        },
         {tests_with_limits, [],
          [
             test_with_time_limit,
             test_with_agents_limit,
             test_with_score_limit
          ]
+        },
+        {tests_for_multiple_populations, [parallel, shuffle],
+         [simple_population || _ <- ?SEQ(?PARALLEL_POPULATIONS)]
         }
     ].
 
@@ -157,8 +159,6 @@ my_test_case_example(_Config) ->
 % TESTS --------------------------------------------------------------
 
 % --------------------------------------------------------------------
-simple_population() ->
-    [].
 simple_population(_Config) ->
     AgentsF = [test_agents:random_score()||_<-?SEQ(?PARALLEL_AGENTS)],
     Stop_condition = ltools:randnth(
@@ -172,8 +172,6 @@ simple_population(_Config) ->
     ok.
 
 % --------------------------------------------------------------------
-test_with_time_limit() ->
-    [].
 test_with_time_limit(_Config) ->
     AgentsF = [test_agents:random_score()||_<-?SEQ(?PARALLEL_AGENTS)],
     Stop_condition = ?stop_time(?TEST_POP_TIME_LIMIT),
@@ -181,8 +179,6 @@ test_with_time_limit(_Config) ->
     print_results({Id, Results}).
 
 % --------------------------------------------------------------------
-test_with_agents_limit() ->
-    [].
 test_with_agents_limit(_Config) ->
     AgentsF = [test_agents:random_score()||_<-?SEQ(?PARALLEL_AGENTS)],
     Stop_condition = ?max_generations(?TEST_POP_AGENTS_LIMIT),
@@ -190,8 +186,6 @@ test_with_agents_limit(_Config) ->
     print_results({Id, Results}).
 
 % --------------------------------------------------------------------
-test_with_score_limit() ->
-    [].
 test_with_score_limit(_Config) ->
     AgentsF = [test_agents:random_score()||_<-?SEQ(?PARALLEL_AGENTS)],
     Stop_condition = ?score_target(?TEST_POP_SCORE_LIMIT),
@@ -217,7 +211,9 @@ test_population(Agents_features, Stop_condition) ->
 % --------------------------------------------------------------------
 correct_population_generation() ->
     ?HEAD("Correct generation of a population ....................."),
-    Population_id = eevo:population(rand_name()),
+    Selection = ltools:randnth(?SELECTIONS),
+    ?INFO("Selection algorithm to use: ", Selection),
+    Population_id = eevo:population(rand_name(), Selection),
     ?END({ok, Population_id}).
 
 % --------------------------------------------------------------------
