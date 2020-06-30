@@ -7,12 +7,13 @@
 -module(selection).
 
 -include_lib("eunit/include/eunit.hrl").
+-include_lib("kernel/include/logger.hrl").
 
 %% API
 -export([func/2]).
 -export_type([func/0]).
 
--type func() :: top3 | ramp3.
+-type func() :: top3 | top10 | ramp3 | ramp10.
 
 
 %%%===================================================================
@@ -24,17 +25,19 @@
 %% Note the input ScoreAgents is an ordered list of {Score, Agent_id}.
 %% @end
 %%--------------------------------------------------------------------
--spec func(Function, ScoreAgents) ->  Agent_Id when 
-    Function    :: func(),
-    ScoreAgents :: [{Score :: number(), Agent_Id :: agent:id()}],
-    Agent_Id    :: agent:id().
-func(Function, ScoreAgents) ->
-    Result = apply_fun(Function, ScoreAgents),
+-spec func(Function, ScorePool) ->  {ok, Agent_Id} | empty_pool when 
+    Function  :: func(),
+    ScorePool :: scorer:pool(),
+    Agent_Id  :: agent:id().
+func(Function, ScorePool) ->
+    Result = apply_fun(Function, ScorePool),
     Result.
 
-apply_fun( top3, ScoreAgents) ->   top3(ScoreAgents);
-apply_fun(ramp3, ScoreAgents) ->  ramp3(ScoreAgents); 
-apply_fun( _Ref,_ScoreAgents) ->  error(not_defined).
+apply_fun(  top3, ScorePool) ->  any(scorer:top(ScorePool,  3));
+apply_fun( ramp3, ScorePool) -> ramp(scorer:top(ScorePool,  3)); 
+apply_fun( top10, ScorePool) ->  any(scorer:top(ScorePool, 10));
+apply_fun(ramp10, ScorePool) -> ramp(scorer:top(ScorePool, 10)); 
+apply_fun(  _Ref,_ScorePool) -> error(not_defined).
 
 
 %%====================================================================
@@ -42,52 +45,39 @@ apply_fun( _Ref,_ScoreAgents) ->  error(not_defined).
 %%====================================================================
 
 %%--------------------------------------------------------------------
-%% @doc Returns a random agent from the top3.
+%% @doc Returns a random agent from the list.
 %% @end
 %%--------------------------------------------------------------------
-% TODO: Define specs
-
-top3(ScoreAgents) when length(ScoreAgents) > 2 ->
-    Top3 = lists:sublist(ScoreAgents, 3),
-    {_, Agent_Id} = ltools:randnth(Top3),
-    Agent_Id;
-top3([_,_] = ScoreAgents) -> 
+any([_,_|_] = ScoreAgents) -> 
     {_, Agent_Id} = ltools:randnth(ScoreAgents),
-    Agent_Id;
-top3([{_, Agent_Id}]) -> 
-    Agent_Id;
-top3([]) -> 
-    [].
+    {ok, Agent_Id};
+any([{_, Agent_Id}]) -> {ok, Agent_Id};
+any(             []) -> empty_pool.
 
 %%--------------------------------------------------------------------
-%% @doc Returns a random agent from top3, but the probability of each 
-%% is proportional to the score.
+%% @doc Returns a random agent, but the probability of each is 
+%% proportional to the score.
 %% @end
 %%--------------------------------------------------------------------
-% TODO: Define specs
-ramp3(ScoreAgents) when length(ScoreAgents) > 2 ->
-    Top3 = lists:sublist(ScoreAgents, 3),
-    {_, Agent_Id} = random_by_score(Top3),
-    Agent_Id;
-ramp3([_,_] = ScoreAgents) -> 
+ramp([_,_|_] = ScoreAgents) -> 
     {_, Agent_Id} = random_by_score(ScoreAgents),
-    Agent_Id;
-ramp3([{_, Agent_Id}]) -> 
-    Agent_Id;
-ramp3([]) -> 
-    [].
+    {ok, Agent_Id};
+ramp([{_, Agent_Id}]) -> {ok, Agent_Id};
+ramp(             []) -> empty_pool.
 
 
 %%====================================================================
 %% Internal functions
 %%====================================================================
+
+% Returns a random agent proportionally to score --------------------
 random_by_score(ScoreAgents) -> 
     {Scores, _} = lists:unzip(ScoreAgents),
     SumScores   = lists:sum(Scores),
     random_by_score(ScoreAgents, rand:uniform() * SumScores).
 
 random_by_score([{Score,Id}|   _], Stop) when Score > Stop -> 
-    Id;
+    {Score,Id};
 random_by_score([{Score, _}|SIdx], Stop)                   -> 
     random_by_score(SIdx, Stop - Score).
 
@@ -96,9 +86,17 @@ random_by_score_test() ->
     ?assert(length([X 
          || X <-[random_by_score(ScoreAgents)
                     || _<-lists:seq(1,1000)], 
-            X==a
+            X=={50,a}
         ]) > 400
     ).
+
+
+
+
+
+
+
+
 
 
 %%====================================================================
