@@ -109,8 +109,7 @@ run(Population_id, Agents_ids, Size, Stop_condition) ->
 %% @end
 %%--------------------------------------------------------------------
 init([From, Population_id, Agents_ids, Max_size, Stop_condition]) ->
-    [Population]    = mnesia:dirty_read(population, Population_id),
-    Population_info = population:info(Population),
+    Population_info = eevo:info(Population_id),
     Score_table       = map_get(score_table, Population_info),
     {ok, Score_group} = scorer:new_group(),
     {ok,  Score_pool} = scorer:new_pool(Score_table, [Score_group]),
@@ -273,10 +272,8 @@ terminate(Reason, OldState, State) ->
     ok = eevo_sup:stop_supervisor(?POPULATION_ID),
     [true = agents_pool:unregister(Pid) || Pid <- maps:keys(?AGENTS)],
     {atomic, ok} = mnesia:transaction(
-        fun() ->
-            [Population] = mnesia:read(population, ?POPULATION_ID), 
-            mnesia:write(population:update(Population, ?DATA))
-        end),
+        fun() -> population:update(?POPULATION_ID, ?DATA) end
+    ),
     ?FROM ! {run_end, self()}.
 
 %%--------------------------------------------------------------------

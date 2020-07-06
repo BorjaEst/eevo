@@ -42,9 +42,9 @@ population(Name) -> population(Name, top3).
 
 -spec population(Name :: atom(), selection()) -> population().
 population(Name, Selection) ->
-    Population = population:new(Name, Selection),
-    ok = mnesia:dirty_write(Population),
-    population:id(Population).
+    Function = fun() -> population:new(Name, Selection) end,
+    {atomic, Population} = mnesia:transaction(Function),
+    Population.
 
 %%--------------------------------------------------------------------
 %% @doc Runs a population starting by the defined seeds until the 
@@ -73,9 +73,11 @@ run(Id, Seeds, Size, Stop) when is_function(Stop) ->
 %%--------------------------------------------------------------------
 -spec agent(features()) -> agent().
 agent(Features) ->
-    Agent = agent:new(Features),
-    ok = mnesia:dirty_write(Agent),
-    agent:id(Agent).
+    {atomic, Agent} = mnesia:transaction(
+        fun() -> 
+            agent:new(Features) 
+        end),
+    Agent.
 
 %%--------------------------------------------------------------------
 %% @doc Returns info of a population id.
@@ -83,18 +85,15 @@ agent(Features) ->
 %%--------------------------------------------------------------------
 -spec info(population()) -> info().
 info(Population_id) ->
-    case mnesia:dirty_read(population, Population_id) of
-        [Population] -> population:info(Population);
-        []           -> error(badarg)
-    end.
+    Function = fun() -> population:info(Population_id) end,
+    {atomic, Info} = mnesia:transaction(Function),
+    Info.
 
 %%--------------------------------------------------------------------
 %% @doc Add a score value to an agent id. The call is asynchronous.
 %% @end
 %%--------------------------------------------------------------------
--spec score(Agent_Pid, Points) -> ok when
-    Agent_Pid :: pid(),
-    Points    :: float().
+-spec score(Agent_Pid::pid(), Points::float()) -> ok.
 score(Pid, Points) ->
     #{agent_id    := Agent_id, 
       score_group := Score_group} = agents_pool:info(Pid),
@@ -105,7 +104,8 @@ score(Pid, Points) ->
 %% @end
 %%--------------------------------------------------------------------
 -spec score_table(population()) -> atom().
-score_table(Id) -> population:score_table(Id).
+score_table(Population_id) -> 
+    population:score_table(Population_id).
 
 %%--------------------------------------------------------------------
 %% @doc Returns the N agents with the highest score.
@@ -134,16 +134,18 @@ bottom(Id, N) ->
 %% @end
 %%--------------------------------------------------------------------
 -spec tree(agent() | population()) -> tree:tree().
-tree({_,population} = Id) -> 
+tree({population, _} = Id) -> 
     Agents_ids = agents_list(Id),
-    tree:from_list(list_tree(Agents_ids));
-
-tree({_, agent} = Id) -> tree(Id, #{}). 
+    Get_Tree   = fun() -> tree:from_list(list_tree(Agents_ids)) end,
+    {atomic, Tree} = mnesia:transaction(Get_Tree),
+    Tree;
+tree({agent,_} = Id) -> 
+    {atomic, Tree} = mnesia:transaction(fun() -> tree(Id, #{}) end),
+    Tree. 
 
 tree(undefined, Tree) -> Tree;
 tree( Agent_id, Tree) -> 
-    [Agent] = mnesia:dirty_read(agent, Agent_id),
-    tree(agent:parent(Agent), #{Agent_id => Tree}).
+    tree(agent:parent(Agent_id), #{Agent_id => Tree}).
 
 %%--------------------------------------------------------------------
 %% @doc Reads the father agent, applies the mutation function to the 
@@ -151,14 +153,15 @@ tree( Agent_id, Tree) ->
 %% its Id.
 %% @end
 %%--------------------------------------------------------------------
--spec mutate(Agent_Id :: agent()) ->
-    Child_Id:: agent().
-mutate(Agent_Id) ->
-    [Agent] = mnesia:dirty_read(agent, Agent_Id),
-    Child   = agent:mutate(agent:clone(Agent)),
-    ok      = mnesia:dirty_write(Child),
-    agent:id(Child).
-
+-spec mutate(Agent::agent()) -> Child::agent().
+mutate(Id) ->
+    {atomic, Agent} = mnesia:transaction(
+        fun() ->
+            Clone = agent:clone(Id),
+            ok = agent:mutate(Clone),
+            Clone
+        end),
+    Agent.
 
 %%%===================================================================
 %%% Internal functions
@@ -174,8 +177,7 @@ agents_list(Population_id) ->
 
 % Returls a list of the listed agents as {Child, Parent} ------------
 list_tree([Id|Ids]) -> 
-   [Agent] = mnesia:dirty_read(agent, Id),
-   [{Id, agent:parent(Agent)} | list_tree(Ids)];
+   [{Id, agent:parent(Id)} | list_tree(Ids)];
 list_tree([]) -> 
     [].
 
