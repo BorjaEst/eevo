@@ -134,7 +134,8 @@ groups() ->
 all() ->
     [
         {group, tests_with_limits},
-        {group, tests_for_multiple_populations}
+        {group, tests_for_multiple_populations},
+        test_error_agent
     ].
 
 %%--------------------------------------------------------------------
@@ -191,6 +192,18 @@ test_with_score_limit(_Config) ->
     Stop_condition = ?score_target(?TEST_POP_SCORE_LIMIT),
     {Id, Results} = test_population(AgentsF, Stop_condition),
     print_results({Id, Results}).
+
+% --------------------------------------------------------------------
+test_error_agent(_Config) ->
+    ?HEAD("Run_as an error agent would return the error ..........."),
+    Agent = eevo:agent(test_agents:error_agent()),
+    ?INFO("Agent id: ", Agent),
+    try eevo:run_as(Agent) of 
+        _ -> error(exception_failed)
+    catch 
+        error:test_error -> ok
+    end,
+    ?END(ok).
 
 
 % --------------------------------------------------------------------

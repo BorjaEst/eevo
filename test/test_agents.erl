@@ -38,3 +38,12 @@ random_score() ->
         arguments => arguments_example()
     }.
 
+
+% --------------------------------------------------------------------
+error_agent() -> 
+    #{
+        mutation  => fun() -> [] end,
+        function  => fun() -> error(test_error) end,
+        arguments => []
+    }.
+
