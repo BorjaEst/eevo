@@ -124,34 +124,19 @@ mutate(Agent) ->
     {ok, Pid :: pid()}.
 start_link(Id, ScoreGroup) ->
     [Agent]   = mnesia:dirty_read(agent, Id),
-    Function  = Agent#agent.function,
-    Arguments = Agent#agent.arguments,
-    State = #state{id=Id, sgroup=ScoreGroup},
-    {ok, spawn_link(?MODULE, loop, [Function, Arguments, State])}.
-
-%%--------------------------------------------------------------------
-%% @doc Spawn function for non OTP run.
-%% @end
-%%--------------------------------------------------------------------
--spec start(Agent_Id :: id()) -> 
-    {ok, Pid :: pid()}.
-start(Id) ->
-    {ok, ScoreGroup} = application:get_env(eevo, shell_sgroup),
-    start(Id, ScoreGroup).
-
--spec start(Agent_Id :: id(), scorer:group()) -> 
-    {ok, Pid :: pid()}.
-start(Id, ScoreGroup) ->
-    [Agent]   = mnesia:dirty_read(agent, Id),
-    Function  = Agent#agent.function,
-    Arguments = Agent#agent.arguments,
-    State = #state{id=Id, sgroup=ScoreGroup},
-    {ok, spawn(?MODULE, loop, [Function, Arguments, State])}.
+    {ok, spawn_link(?MODULE, init, [Id, ScoreGroup, Agent])}.
 
 
 %%%===================================================================
 %%% Callback functions
 %%%===================================================================
+
+% Call for the agent init -------------------------------------------
+init(Id, ScoreGroup, Agent) -> 
+    loop(Agent#agent.function, Agent#agent.arguments, #state{
+        id = Id, 
+        sgroup = ScoreGroup
+    }).
 
 % Call for the agent loop -------------------------------------------
 loop(Function, Arguments, State) -> 

@@ -68,11 +68,18 @@ run(Id, Seeds, Size, Stop) when is_function(Stop) ->
       top3       => top(Id, 3)}.
 
 %%--------------------------------------------------------------------
-%% @doc Runs an agent returning its pid.
+%% @doc Runs as an agent calling its function with the arguments.
 %% @end
 %%--------------------------------------------------------------------
--spec run(Agent_id::agent()) -> {ok, pid()}.
-run(Agent) -> agent:start(Agent).
+-spec run_as(Id::agent()) -> TBD::term().
+run_as(Id) -> 
+    case mnesia:dirty_read(agent, Id) of 
+        [Agent] ->
+            #{function:=Fun, arguments:=Arg} = agent:features(Agent),
+            apply(Fun, Arg);
+        []      -> 
+            error(not_found)
+    end.
 
 %%--------------------------------------------------------------------
 %% @doc Creates a new agent with the indicated features.
