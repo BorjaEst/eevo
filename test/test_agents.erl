@@ -17,17 +17,15 @@
 
 % --------------------------------------------------------------------
 arguments_example() ->
-    [#{score_base => rand:uniform(20)}].
+    [_Score_base=rand:uniform(20)].
 
-mutation_example(Arguments) ->
-    [#{score_base := Base}] = Arguments,
-    [#{score_base => Base + rand:uniform(10)}].
+mutation_example(Score_base) ->
+    [Score_base + rand:uniform(10)].
 
-function_example(Arguments) ->
+function_example(Score_base) ->
     timer:sleep(rand:uniform(10)),
-    MyBase  = maps:get(score_base, Arguments),
     MyScore = rand:uniform(100),
-    {stop, normal, [{score, MyBase+MyScore}]}.
+    {stop, normal, [{score, Score_base+MyScore}]}.
 
 random_score() -> 
     #{
