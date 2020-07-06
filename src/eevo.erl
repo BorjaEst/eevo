@@ -68,6 +68,15 @@ run(Id, Seeds, Size, Stop) when is_function(Stop) ->
       top3       => top(Id, 3)}.
 
 %%--------------------------------------------------------------------
+%% @doc Runs as an agent calling its function with the arguments.
+%% @end
+%%--------------------------------------------------------------------
+-spec run_as(Agent::agent()) -> TBD::term(). %TODO: define term
+run_as(Agent_id) -> 
+    #{function:=Fun, arguments:=Arg} = agent:features(Agent_id),
+    apply(Fun, Arg).
+
+%%--------------------------------------------------------------------
 %% @doc Creates a new agent with the indicated features.
 %% @end
 %%--------------------------------------------------------------------
@@ -80,12 +89,17 @@ agent(Features) ->
     Agent.
 
 %%--------------------------------------------------------------------
-%% @doc Returns info of a population id.
+%% @doc Returns the info from a population or agent.
 %% @end
 %%--------------------------------------------------------------------
--spec info(population()) -> info().
-info(Population_id) ->
+-spec info(population() | agent()) -> info() | features().
+info({population, _} = Population_id) ->
     Function = fun() -> population:info(Population_id) end,
+    {atomic, Info} = mnesia:transaction(Function),
+    Info;
+
+info({agent, _} = Agent_id) ->
+    Function = fun() -> agent:features(Agent_id) end,
     {atomic, Info} = mnesia:transaction(Function),
     Info.
 

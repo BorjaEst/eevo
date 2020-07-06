@@ -17,20 +17,33 @@
 
 % --------------------------------------------------------------------
 arguments_example() ->
-    [_Score_base=rand:uniform(20)].
+    Score_base = rand:uniform(20),
+    Sleep_time = rand:uniform(10),
+    State = #{key => value},
+    [Score_base, Sleep_time, State].
 
-mutation_example(Score_base) ->
-    [Score_base + rand:uniform(10)].
+mutation_example(Score_base, Sleep_time, State) ->
+    Extra_score = rand:uniform(10),
+    [Score_base + Extra_score, Sleep_time, State].
 
-function_example(Score_base) ->
-    timer:sleep(rand:uniform(10)),
-    MyScore = rand:uniform(100),
-    {stop, normal, [{score, Score_base+MyScore}]}.
+function_example(Base_score, Sleep_time, _State) ->
+    timer:sleep(Sleep_time),
+    Score = rand:uniform(100),
+    {stop, normal, [{score, Base_score+Score}]}.
 
 random_score() -> 
     #{
-        function  => fun function_example/1,
-        arguments => arguments_example(),
-        mutation  => fun mutation_example/1
+        mutation  => fun mutation_example/3,
+        function  => fun function_example/3,
+        arguments => arguments_example()
+    }.
+
+
+% --------------------------------------------------------------------
+error_agent() -> 
+    #{
+        mutation  => fun() -> [] end,
+        function  => fun() -> error(test_error) end,
+        arguments => []
     }.
 

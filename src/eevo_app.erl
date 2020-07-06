@@ -18,6 +18,10 @@
 start(_StartType, _StartArgs) ->
     true = new_table(population, population:record_fields()),
     true = new_table(     agent,      agent:record_fields()),
+    {ok, Score_group} = scorer:new_group(),
+    ok = application:set_env(eevo, shell_sgroup, Score_group),
+    {ok, Score_pool} = scorer:new_pool(eevo_shell, [Score_group]),
+    ok = application:set_env(eevo, shell_spool, Score_pool),
     eevo_sup:start_link().
 
 %%--------------------------------------------------------------------

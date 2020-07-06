@@ -84,18 +84,6 @@ clone(Id) ->
     {agent, Clone#agent.key}.
 
 %%--------------------------------------------------------------------
-%% @doc Returns the agent features.  
-%% Should run inside an mnesia transaction.
-%% @end
-%%--------------------------------------------------------------------
--spec info(Id::id()) -> Info::features().
-info(Id) -> 
-    Agent = read(Id),
-    #{function  => Agent#agent.function,
-      arguments => Agent#agent.arguments,
-      mutation  => Agent#agent.mutation}.
-
-%%--------------------------------------------------------------------
 %% @doc Returns the agent parent.  
 %% Should run inside an mnesia transaction.
 %% @end
@@ -104,6 +92,17 @@ info(Id) ->
 parent(Id) -> 
     Agent = read(Id),
     Agent#agent.parent.
+
+%%--------------------------------------------------------------------
+%% @doc Returns the agent parent.  
+%% @end
+%%--------------------------------------------------------------------
+-spec features(Id::id()) -> Info::features().
+features(Id) ->
+    Agent = read(Id),
+    #{function  => Agent#agent.function,
+      arguments => Agent#agent.arguments,
+      mutation  => Agent#agent.mutation}.
 
 %%--------------------------------------------------------------------
 %% @doc Mutates an agent (The id keeps the same).
@@ -132,6 +131,13 @@ start_link(Id, ScoreGroup) ->
 %%%===================================================================
 %%% Callback functions
 %%%===================================================================
+
+% Call for the agent init -------------------------------------------
+init(Id, ScoreGroup, Agent) -> 
+    loop(Agent#agent.function, Agent#agent.arguments, #state{
+        id = Id, 
+        sgroup = ScoreGroup
+    }).
 
 % Call for the agent loop -------------------------------------------
 loop(Function, Arguments, State) -> 

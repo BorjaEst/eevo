@@ -198,12 +198,11 @@ handle_event(internal, new, running, State) when ?SIZE < ?MAX_SIZE ->
 handle_event(internal, new, _StateName, _State) ->
     keep_state_and_data;
 handle_event(internal, mutate_and_run, running, State) ->
-    case scorer:top(?SCORE_POOL, ?MAX_SIZE_TO_SELECTION) of 
-        [_|_] = TopScoreAgents -> 
-            SelectedId = selection:func(?SELECTION, TopScoreAgents),
-            Id = eevo:mutate(SelectedId),
-            {keep_state, State, [{next_event, internal, {run, Id}}]};    
-        [] -> 
+    case selection:func(?SELECTION, ?SCORE_POOL) of 
+        {ok, Selected_id} -> 
+            Id = eevo:mutate(Selected_id),
+            {keep_state, State, [{next_event, internal, {run, Id}}]};   
+        empty_pool -> 
             keep_state_and_data
     end;
 handle_event(internal, {run, Id}, running, State) ->
