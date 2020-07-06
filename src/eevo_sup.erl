@@ -16,7 +16,7 @@
 
 -define(SERVER, ?MODULE).
 
--define(POP_SUP_ID(Pop_Id), {element(1, Pop_Id), pop_sup}).
+-define(POP_SUP_ID(Pop_Id), {element(2, Pop_Id), pop_sup}).
 -define(SPECS_POP_SUP(Population_id), #{
     id       => ?POP_SUP_ID(Population_id),
     start    => {pop_sup, start_link, []},
