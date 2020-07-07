@@ -73,7 +73,9 @@ run(Id, Seeds, Size, Stop) when is_function(Stop) ->
 %%--------------------------------------------------------------------
 -spec run_as(Agent::agent()) -> TBD::term(). %TODO: define term
 run_as(Agent_id) -> 
-    #{function:=Fun, arguments:=Arg} = agent:features(Agent_id),
+    Get_info = fun() -> agent:features(Agent_id) end,
+    {atomic, Info} = mnesia:transaction(Get_info),
+    #{function:=Fun, arguments:=Arg} = Info,
     apply(Fun, Arg).
 
 %%--------------------------------------------------------------------
