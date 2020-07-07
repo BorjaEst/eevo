@@ -1,4 +1,3 @@
-# eevo
 Erlang Evolution (eevo) is an application to implement [evolutionary algorithms](https://en.wikipedia.org/wiki/Evolutionary_algorithm) in erlang.
 
 # Installation
@@ -28,12 +27,7 @@ $ rebar3 shell
 ===> Booted eevo
 ```
 
-
 All user functions are defined inside the module [src/eevo](https://github.com/BorjaEst/eevo/blob/master/src/eevo.erl), however here is an example:
-
-
-
-
 
 
 ## Measure performance and resources
@@ -75,38 +69,22 @@ This function will be used to modify the arguments when creating a new agent mut
 In this case, we can create a simple agent that will print his score and end. When mutating the score of the new agent will change.
 ```erl
 2> Function = fun(Score) -> io:format("Hi, this is my score: ~p ~n", [Score]), {stop, normal, [{score,Score}]} end.
-#Fun<erl_eval.44.97283095>
+#Fun<erl_eval.7.126501267>
 3> Arguments = [1.0].
 [1.0]
-4> Mutation = fun(Score) -> Score + rand:uniform(20) - 10 end.
-#Fun<erl_eval.44.97283095>
-5> MyAgent = eevo:agent(#{function=>Function, arguments=>Arguments, mutation=>Mutation}). 
-{1,agent}
+4> Mutation = fun(Score) -> [Score + rand:uniform(20) - 10] end.
+#Fun<erl_eval.7.126501267>
+5> MyAgent = eevo:agent(#{function=>Function, arguments=>Arguments, mutation=>Mutation}).
+{agent,1}
 ```
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 ## Test your agent
 The best way to know everything went correctly is to try to run the agent suing `fun eevo:run_as/1`:
-TBD
 ```erl
-
+6> eevo:run_as(MyAgent).
+Hi, this is my score: 1.0 
+{stop,normal,[{score,1.0}]}
 ```
 
 
@@ -116,15 +94,58 @@ In this case we will create a population *'test'* that will run 2 agents in para
 ```
 7> Stop_rule = fun(#{generation:=X})-> X>=10 end.
 #Fun<erl_eval.44.97283095>
-8> eevo:run(test,[MyAgent],2,Stop_rule).                                                   
+8> eevo:run(test,[MyAgent],2,Stop_rule).
 Hi, this is my score: 1.0 
-
-.....
-
+Hi, this is my score: 5.0 
+Hi, this is my score: 7.0 
+Hi, this is my score: -2.0 
+Hi, this is my score: 2.0 
+Hi, this is my score: 2.0 
+Hi, this is my score: 1.0 
+Hi, this is my score: -3.0 
+Hi, this is my score: 11.0 
+Hi, this is my score: 11.0 
+Hi, this is my score: 15.0 
+#{population =>
+      #{run_data =>
+            #{best_score => 11.0,generation => 10,runtime => 6},
+        score_table => test,selection => top3},
+  top3 => [{11.0,{agent,10}},{11.0,{agent,9}},{7.0,{agent,3}}],
+  tree =>
+      #{{agent,1} =>
+            #{{agent,2} =>
+                  #{{agent,4} => #{},{agent,7} => #{},{agent,8} => #{}},
+              {agent,3} => #{{agent,5} => #{},{agent,10} => #{}},
+              {agent,6} => #{{agent,9} => #{}}}}}
 ```
-TODO: TBD
+Once the **stop_condition** is met, the population stops and returns the following:
+* Population information, such the selection algorithm used, best score, etc.
+* Top3, the ids of the 3 agents with the best score.
+* Evolution tree, which shows the evolution path of each tested agent. 
+
+In the results we can observe 10 agents where tested. 
+
+## Get the information from the desired agent
+The main objective of running a population is to know which arguments would run the optima in certain conditions.
+Afte the population has run, and you get the best agents, you can get the argument of any of them by simply using `fun eevo:info/1` which will return the features used to create that agent.
+```erl
+9> eevo:info({agent,10}).
+#{arguments => [11.0],
+  function => #Fun<erl_eval.7.126501267>,
+  mutation => #Fun<erl_eval.7.126501267>}
+```
 
 
+# Contributing
+Pull requests are welcome. For major changes, please open an issue first to discuss what you would like to change.
+
+Please make sure to update tests as appropriate.
 
 
+## Improvement ideas and requests
+* TBD
+
+
+# License
+This software is under [GPL-3.0](https://www.gnu.org/licenses/gpl-3.0.en.html) license.
 
