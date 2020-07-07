@@ -53,9 +53,9 @@ Where:
 ### function
 What the agent will run, it is a call to apply(Function, Arguments) which should return one of the following:
 * **{next, Fun, Arg         }** Indicates the next function with the arguments to run.
-* **{next, Fun, Arg, Actions}** Indicates the next function with the arguments to run plus an action (score for example).
+* **{next, Fun, Arg, Actions}** Indicates the next function with the arguments to run plus actions (score for example).
 * **{stop,   Reason         }** This agent will end so a new one can be spawned. 
-* **{stop,   Reason, Actions}** This agent will end so a new one can be spawned plus an action (score for example).t 
+* **{stop,   Reason, Actions}** This agent will end so a new one can be spawned plus actions (score for example).
 
 ### arguments
 Is a list of arguments which will be passed to 'function' and 'mutation'. 
