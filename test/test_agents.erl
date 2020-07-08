@@ -19,17 +19,23 @@
 arguments_example() ->
     Score_base = rand:uniform(20),
     Sleep_time = rand:uniform(10),
-    State = #{key => value},
+    State = #{raise_error => false},
     [Score_base, Sleep_time, State].
 
 mutation_example(Score_base, Sleep_time, State) ->
-    Extra_score = rand:uniform(10),
-    [Score_base + Extra_score, Sleep_time, State].
+    case rand:uniform() of
+        X when X < 0.10 -> [Score_base, Sleep_time, #{raise_error=>1}];
+        X when X < 0.20 -> [Score_base, Sleep_time, #{raise_error=>2}];
+        _ -> [Score_base + rand:uniform(10), Sleep_time, State]
+    end.
 
-function_example(Base_score, Sleep_time, _State) ->
+function_example(Base_score, Sleep_time, #{raise_error:=false}) ->
     timer:sleep(Sleep_time),
     Score = rand:uniform(100),
-    {stop, normal, [{score, Base_score+Score}]}.
+    {stop, normal, [{score, Base_score+Score}]};
+function_example(_, Sleep_time, #{raise_error:=Number}) ->
+    timer:sleep(Sleep_time),
+    error({error_number, Number}).
 
 random_score() -> 
     #{

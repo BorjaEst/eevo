@@ -20,7 +20,7 @@
 -define(SPECS_POP_SUP(Population_id), #{
     id       => ?POP_SUP_ID(Population_id),
     start    => {pop_sup, start_link, []},
-    restart  => temporary,
+    restart  => transient,
     type     => supervisor,
     modules  => [supervisor]
 }).
@@ -62,7 +62,7 @@ stop_supervisor(Population_id) ->
 %% Before OTP 18 tuples must be used to specify a child. e.g.
 %% Child :: {Id,StartFunc,Restart,Shutdown,Type,Modules}
 init([]) ->
-    SupFlags = #{strategy  => rest_for_one, 
+    SupFlags = #{strategy  => one_for_one, 
                  intensity => 10,
                  period    => 36},
     ChildSpecs = [],

@@ -57,9 +57,9 @@ stop_agent(Supervisor, Id) ->
 %% Before OTP 18 tuples must be used to specify a child. e.g.
 %% Child :: {Id,StartFunc,Restart,Shutdown,Type,Modules}
 init([]) ->
-    SupFlags = #{strategy  => one_for_all, %% All down if one down
-                 intensity => 0,   %% Restart is not allowed
-                 period    => 10}, %% Any as intensity = 0
+    SupFlags = #{strategy  => one_for_one, 
+                 intensity => 10,
+                 period    => 36},
     ChildSpecs = [],
     {ok, {SupFlags, ChildSpecs}}.
 
