@@ -155,7 +155,7 @@ loop(Function, Arguments, State) ->
                           reason => Reason}),
             exit(Reason);
         error:Exception -> 
-            ?LOG_WARNING(#{what => "Agent error call", id => ?ID, 
+            ?LOG_NOTICE(#{what => "Agent error call", id => ?ID, 
                            exception=>Exception}),
             exit(Exception)
     end.
