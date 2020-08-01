@@ -150,10 +150,10 @@ loop(Function, Arguments, State) ->
         {stop,   Reason, Actions} -> actions(Actions, State), exit(Reason);
         Other -> error({"Wrong agent return", Other})
     catch 
-        Error:Exception -> 
-            ?LOG_NOTICE(#{what => "Agent unestable", id => ?ID, 
-                          details => #{error=>Error, exception=>Exception}}),
-            exit(normal)
+        exit:Reason -> 
+            ?LOG_NOTICE(#{what => "Agent exit call", id => ?ID, 
+                          details => Reason}),
+            exit(Reason)
     end.
 
 
