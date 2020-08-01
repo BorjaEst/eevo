@@ -146,14 +146,14 @@ loop(Function, Arguments, State) ->
     try apply(Function, Arguments) of 
         {next, Fun, Arg         } -> loop(Fun, Arg, State);
         {next, Fun, Arg, Actions} -> loop(Fun, Arg, actions(Actions, State));
-        {stop,   Reason         } -> exit(Reason);
-        {stop,   Reason, Actions} -> actions(Actions, State), exit(Reason);
+        {stop,  _Reason         } -> exit(normal);
+        {stop,  _Reason, Actions} -> actions(Actions, State), exit(normal);
         Other -> error({"Wrong agent return", Other})
     catch 
         exit:Reason -> 
             ?LOG_NOTICE(#{what => "Agent exit call", id => ?ID, 
                           details => Reason}),
-            exit(Reason)
+            exit(normal)
     end.
 
 
