@@ -143,17 +143,12 @@ init(Id, ScoreGroup, Agent) ->
 % Call for the agent loop -------------------------------------------
 loop(Function, Arguments, State) -> 
     ?LOG_DEBUG(#{what=>"Run agent loop", arg=>Arguments, func=>Function}),
-    try apply(Function, Arguments) of 
+    case apply(Function, Arguments) of 
         {next, Fun, Arg         } -> loop(Fun, Arg, State);
         {next, Fun, Arg, Actions} -> loop(Fun, Arg, actions(Actions, State));
         {stop,   Reason         } -> exit(Reason);
         {stop,   Reason, Actions} -> actions(Actions, State), exit(Reason);
         Other -> error({"Wrong agent return", Other})
-    catch 
-        Error:Exception -> 
-            ?LOG_NOTICE(#{what => "Agent unestable", id => ?ID, 
-                          details => #{error=>Error, exception=>Exception}}),
-            exit(normal)
     end.
 
 
