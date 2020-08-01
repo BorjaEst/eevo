@@ -13,6 +13,9 @@
 -author("borja").
 -compile([export_all, nowarn_export_all]). %%TODO: To delete after build
 
+-include_lib("eunit/include/eunit.hrl").
+-include_lib("kernel/include/logger.hrl").
+
 %% API
 % -export([]).
 -export_Types([population/0, rules/0, selection/0, info/0]).
@@ -88,6 +91,7 @@ agent(Features) ->
         fun() -> 
             agent:new(Features) 
         end),
+    ?LOG_DEBUG(#{what => "New agent", id => Agent}),
     Agent.
 
 %%--------------------------------------------------------------------
@@ -170,14 +174,16 @@ tree( Agent_id, Tree) ->
 %% @end
 %%--------------------------------------------------------------------
 -spec mutate(Agent::agent()) -> Child::agent().
-mutate(Id) ->
-    {atomic, Agent} = mnesia:transaction(
+mutate(Agent) ->
+    {atomic, Child} = mnesia:transaction(
         fun() ->
-            Clone = agent:clone(Id),
+            Clone = agent:clone(Agent),
             ok = agent:mutate(Clone),
             Clone
         end),
-    Agent.
+    ?LOG_INFO(#{what => "Agent mutated", id => Agent, 
+                details => #{child => Child}}),
+    Child.
 
 %%%===================================================================
 %%% Internal functions

@@ -133,7 +133,8 @@ start_link(Id, ScoreGroup) ->
 %%%===================================================================
 
 % Call for the agent init -------------------------------------------
-init(Id, ScoreGroup, Agent) -> 
+init(Id, ScoreGroup, Agent) ->
+    ?LOG_INFO(#{what=>"Initialising agent", id=>Id, gp=>ScoreGroup}), 
     loop(Agent#agent.function, Agent#agent.arguments, #state{
         id = Id, 
         sgroup = ScoreGroup
@@ -141,7 +142,7 @@ init(Id, ScoreGroup, Agent) ->
 
 % Call for the agent loop -------------------------------------------
 loop(Function, Arguments, State) -> 
-    ?LOG_DEBUG(#{what=>"Starting agent", arg=>Arguments, func=>Function}),
+    ?LOG_DEBUG(#{what=>"Run agent loop", arg=>Arguments, func=>Function}),
     case apply(Function, Arguments) of 
         {next, Fun, Arg         } -> loop(Fun, Arg, State);
         {next, Fun, Arg, Actions} -> loop(Fun, Arg, actions(Actions, State));
